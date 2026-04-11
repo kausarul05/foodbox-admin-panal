@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Lock, Mail, LogIn, Shield } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { authAPI } from '@/app/lib/api';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -15,17 +16,33 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     
-    // Demo login - Replace with actual API call
-    setTimeout(() => {
-      if (email === 'admin@foodbox.com' && password === 'admin123') {
-        localStorage.setItem('adminToken', 'demo-token');
+    try {
+      const response = await authAPI.adminLogin(email, password);
+
+      console.log("Login response:", response);
+      
+      if (response.success) {
+        const { token, ...adminData } = response.data;
+        
+        // Store token and admin data
+        localStorage.setItem('adminToken', token);
+        localStorage.setItem('adminData', JSON.stringify(adminData));
+        
         toast.success('লগইন সফল!');
-        router.push('/dashboard');
+        
+        // Use setTimeout to ensure toast is shown before navigation
+        setTimeout(() => {
+          router.push('/dashboard');
+        }, 500);
       } else {
-        toast.error('ভুল ইমেইল বা পাসওয়ার্ড!');
+        toast.error(response.message || 'ভুল ইমেইল বা পাসওয়ার্ড!');
       }
+    } catch (error: any) {
+      console.error("Login error:", error);
+      toast.error(error.message || 'লগইন ব্যর্থ হয়েছে!');
+    } finally {
       setLoading(false);
-    }, 1000);
+    }
   };
 
   return (
@@ -53,7 +70,7 @@ export default function LoginPage() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
+                  className="w-full pl-10 text-black pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
                   placeholder="admin@foodbox.com"
                   required
                 />
@@ -70,7 +87,7 @@ export default function LoginPage() {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
+                  className="w-full pl-10 text-black pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
                   placeholder="••••••••"
                   required
                 />
