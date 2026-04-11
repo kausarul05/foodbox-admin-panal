@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard,
   Package,
@@ -15,9 +15,12 @@ import {
   Crown,
   Diamond
 } from 'lucide-react';
+import toast from 'react-hot-toast';
+import { authAPI } from '@/app/lib/api';
 
 const Sidebar = () => {
   const pathname = usePathname();
+  const router = useRouter();
 
   const menuItems = [
     { name: 'ড্যাশবোর্ড', href: '/dashboard', icon: LayoutDashboard },
@@ -30,8 +33,18 @@ const Sidebar = () => {
   ];
 
   const handleLogout = () => {
+    // Clear all localStorage items
     localStorage.removeItem('adminToken');
-    window.location.href = '/login';
+    localStorage.removeItem('adminData');
+
+    // Clear sessionStorage if used
+    sessionStorage.clear();
+
+    // Show success message
+    toast.success('লগআউট সফল হয়েছে!');
+
+    // Redirect to login page
+    router.push('/login');
   };
 
   return (
@@ -55,11 +68,10 @@ const Sidebar = () => {
             <Link
               key={item.name}
               href={item.href}
-              className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${
-                isActive
+              className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${isActive
                   ? 'bg-white/20 text-white shadow-md'
                   : 'text-white/80 hover:bg-white/10 hover:text-white'
-              }`}
+                }`}
             >
               <item.icon size={20} />
               <span className="font-medium">{item.name}</span>
@@ -76,9 +88,9 @@ const Sidebar = () => {
       <div className="p-4 border-t border-white/20">
         <button
           onClick={handleLogout}
-          className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-white/80 hover:bg-white/10 hover:text-white transition-all duration-200"
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-white/80 hover:bg-white/10 hover:text-white transition-all duration-200 group"
         >
-          <LogOut size={20} />
+          <LogOut size={20} className="group-hover:scale-110 transition-transform" />
           <span className="font-medium">লগআউট</span>
         </button>
       </div>

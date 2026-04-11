@@ -52,36 +52,39 @@ const apiCall = async (endpoint, options = {}) => {
 
 // Auth APIs
 export const authAPI = {
-  adminLogin: async (email, password) => {
+  // Admin login
+  adminLogin: (email, password) => {
+    return apiCall('/auth/admin/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    });
+  },
+
+  // Get admin profile
+  getAdminProfile: () => {
+    return apiCall('/auth/profile');
+  },
+
+  // Logout - clear token on server side (optional)
+  logout: async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/admin/login`, {
+      // Optional: Call server to blacklist token
+      await apiCall('/auth/logout', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ email, password })
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Login failed')
-      }
-
-      return data
+      });
     } catch (error) {
-      console.error('API Error:', error)
-      throw error
+      console.error('Logout API error:', error);
     }
   },
+
   // Change password
-  changePassword: passwordData => {
+  changePassword: (passwordData) => {
     return apiCall('/auth/change-password', {
       method: 'PUT',
-      body: JSON.stringify(passwordData)
-    })
-  }
-}
+      body: JSON.stringify(passwordData),
+    });
+  },
+};
 
 // Dashboard APIs
 export const dashboardAPI = {
