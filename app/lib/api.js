@@ -73,6 +73,13 @@ export const authAPI = {
       console.error('API Error:', error)
       throw error
     }
+  },
+  // Change password
+  changePassword: passwordData => {
+    return apiCall('/auth/change-password', {
+      method: 'PUT',
+      body: JSON.stringify(passwordData)
+    })
   }
 }
 
@@ -125,6 +132,7 @@ export const packageAPI = {
   }
 }
 
+// Menu APIs
 // Menu APIs
 export const menuAPI = {
   // Get menu by package
@@ -278,16 +286,41 @@ export const userAPI = {
 // Settings APIs
 export const settingsAPI = {
   // Get system settings
-  getSettings: () => {
-    return apiCall('/admin/settings')
+  getSettings: async () => {
+    try {
+      const response = await apiCall('/admin/settings')
+      return response
+    } catch (error) {
+      console.error('Error fetching settings:', error)
+      throw error
+    }
   },
 
   // Update system settings
-  updateSettings: settingsData => {
-    return apiCall('/admin/settings', {
-      method: 'PUT',
-      body: JSON.stringify(settingsData)
-    })
+  updateSettings: async settingsData => {
+    try {
+      const response = await apiCall('/admin/settings', {
+        method: 'PUT',
+        body: JSON.stringify(settingsData)
+      })
+      return response
+    } catch (error) {
+      console.error('Error updating settings:', error)
+      throw error
+    }
+  },
+
+  // Backup database
+  backupDatabase: async () => {
+    try {
+      const response = await apiCall('/admin/backup', {
+        method: 'POST'
+      })
+      return response
+    } catch (error) {
+      console.error('Error backing up database:', error)
+      throw error
+    }
   }
 }
 

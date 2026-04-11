@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Package, Edit, Trash2, Plus, Crown, Diamond, X } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Package, Edit, Trash2, Plus, Crown, Diamond, X, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { packageAPI } from '@/app/lib/api';
 
 interface PackageType {
-  id: string;
+  _id: string;
   name: 'golden' | 'diamond';
   title: string;
   price: number;
@@ -15,39 +16,79 @@ interface PackageType {
 }
 
 export default function PackagesPage() {
-  const [packages, setPackages] = useState<PackageType[]>([
-    {
-      id: '1',
-      name: 'golden',
-      title: 'গোল্ডেন প্যাকেজ',
-      price: 2500,
-      originalPrice: 3500,
-      features: ['সপ্তাহের ৭ দিন ডেলিভারি', 'প্রতিদিন ৩ বেলা খাবার', 'ফ্রি হোম ডেলিভারি', 'এক্সট্রা আইটেম ফ্রি'],
-      isActive: true,
-    },
-    {
-      id: '2',
-      name: 'diamond',
-      title: 'ডায়মন্ড প্যাকেজ',
-      price: 3500,
-      originalPrice: 4500,
-      features: ['সপ্তাহের ৭ দিন ডেলিভারি', 'প্রতিদিন ৩ বেলা খাবার', 'ফ্রি হোম ডেলিভারি + হট ব্যাগ', 'এক্সট্রা ডেজার্ট আইটেম ফ্রি', 'প্রায়োরিটি সাপোর্ট'],
-      isActive: true,
-    },
-  ]);
-
+  const [packages, setPackages] = useState<PackageType[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingPackage, setEditingPackage] = useState<PackageType | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState({
+    name: 'golden',
     title: '',
     price: '',
     originalPrice: '',
     features: '',
   });
 
+  // Fetch packages on load
+  useEffect(() => {
+    fetchPackages();
+  }, []);
+
+  const fetchPackages = async () => {
+    try {
+      setLoading(true);
+      const response = await packageAPI.getAllPackages();
+      console.log('Packages response:', response);
+      
+      if (response.success && response.data) {
+        setPackages(response.data);
+      } else {
+        // Fallback to default data if API fails
+        setPackages([
+          {
+            _id: '1',
+            name: 'golden',
+            title: 'গোল্ডেন প্যাকেজ',
+            price: 2500,
+            originalPrice: 3500,
+            features: ['সপ্তাহের ৭ দিন ডেলিভারি', 'প্রতিদিন ৩ বেলা খাবার', 'ফ্রি হোম ডেলিভারি', 'এক্সট্রা আইটেম ফ্রি'],
+            isActive: true,
+          },
+          {
+            _id: '2',
+            name: 'diamond',
+            title: 'ডায়মন্ড প্যাকেজ',
+            price: 3500,
+            originalPrice: 4500,
+            features: ['সপ্তাহের ৭ দিন ডেলিভারি', 'প্রতিদিন ৩ বেলা খাবার', 'ফ্রি হোম ডেলিভারি + হট ব্যাগ', 'এক্সট্রা ডেজার্ট আইটেম ফ্রি', 'প্রায়োরিটি সাপোর্ট'],
+            isActive: true,
+          },
+        ]);
+      }
+    } catch (error) {
+      console.error('Error fetching packages:', error);
+      toast.error('প্যাকেজ লোড করতে ব্যর্থ হয়েছে');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddNew = () => {
+    setEditingPackage(null);
+    setFormData({
+      name: 'golden',
+      title: '',
+      price: '',
+      originalPrice: '',
+      features: '',
+    });
+    setShowModal(true);
+  };
+
   const handleEdit = (pkg: PackageType) => {
     setEditingPackage(pkg);
     setFormData({
+      name: pkg.name,
       title: pkg.title,
       price: pkg.price.toString(),
       originalPrice: pkg.originalPrice.toString(),
@@ -56,33 +97,102 @@ export default function PackagesPage() {
     setShowModal(true);
   };
 
-  const handleSave = () => {
-    if (editingPackage) {
-      const updatedPackages = packages.map(pkg =>
-        pkg.id === editingPackage.id
-          ? {
-              ...pkg,
-              title: formData.title,
-              price: parseInt(formData.price),
-              originalPrice: parseInt(formData.originalPrice),
-              features: formData.features.split(',').map(f => f.trim()),
-            }
-          : pkg
-      );
-      setPackages(updatedPackages);
-      toast.success('প্যাকেজ আপডেট হয়েছে!');
+  const handleSave = async () => {
+    if (!formData.title || !formData.price || !formData.originalPrice) {
+      toast.error('দয়া করে সব ফিল্ড পূরণ করুন');
+      return;
     }
-    setShowModal(false);
-    setEditingPackage(null);
-    setFormData({ title: '', price: '', originalPrice: '', features: '' });
+
+    try {
+      setSubmitting(true);
+      
+      const packageData = {
+        name: formData.name,
+        title: formData.title,
+        price: parseInt(formData.price),
+        originalPrice: parseInt(formData.originalPrice),
+        features: formData.features.split(',').map(f => f.trim()).filter(f => f),
+      };
+
+      if (editingPackage) {
+        // Update existing package
+        const response = await packageAPI.updatePackage(editingPackage._id, packageData);
+        if (response.success) {
+          toast.success('প্যাকেজ আপডেট হয়েছে!');
+          fetchPackages(); // Refresh list
+        } else {
+          toast.error(response.message || 'আপডেট ব্যর্থ হয়েছে');
+        }
+      } else {
+        // Create new package
+        const response = await packageAPI.createPackage(packageData);
+        if (response.success) {
+          toast.success('নতুন প্যাকেজ তৈরি হয়েছে!');
+          fetchPackages(); // Refresh list
+        } else {
+          toast.error(response.message || 'তৈরি করতে ব্যর্থ হয়েছে');
+        }
+      }
+      
+      setShowModal(false);
+      setEditingPackage(null);
+      setFormData({
+        name: 'golden',
+        title: '',
+        price: '',
+        originalPrice: '',
+        features: '',
+      });
+    } catch (error: any) {
+      console.error('Error saving package:', error);
+      toast.error(error.message || 'সেভ করতে ব্যর্থ হয়েছে');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const toggleStatus = (id: string) => {
-    setPackages(packages.map(pkg =>
-      pkg.id === id ? { ...pkg, isActive: !pkg.isActive } : pkg
-    ));
-    toast.success('স্ট্যাটাস আপডেট হয়েছে!');
+  const toggleStatus = async (id: string, currentStatus: boolean) => {
+    try {
+      const response = await packageAPI.updatePackage(id, { isActive: !currentStatus });
+      if (response.success) {
+        toast.success(`প্যাকেজ ${!currentStatus ? 'সক্রিয়' : 'নিষ্ক্রিয়'} করা হয়েছে!`);
+        fetchPackages(); // Refresh list
+      } else {
+        toast.error(response.message || 'স্ট্যাটাস পরিবর্তন ব্যর্থ হয়েছে');
+      }
+    } catch (error) {
+      console.error('Error toggling status:', error);
+      toast.error('স্ট্যাটাস পরিবর্তন করতে ব্যর্থ হয়েছে');
+    }
   };
+
+  const handleDelete = async (id: string, title: string) => {
+    if (confirm(`"${title}" প্যাকেজটি ডিলিট করতে চান?`)) {
+      try {
+        const response = await packageAPI.deletePackage(id);
+        if (response.success) {
+          toast.success('প্যাকেজ ডিলিট করা হয়েছে!');
+          fetchPackages(); // Refresh list
+        } else {
+          toast.error(response.message || 'ডিলিট ব্যর্থ হয়েছে');
+        }
+      } catch (error) {
+        console.error('Error deleting package:', error);
+        toast.error('প্যাকেজ ডিলিট করতে ব্যর্থ হয়েছে');
+      }
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 text-[#3B82F6] animate-spin mx-auto mb-4" />
+          <p className="text-gray-500">লোড হচ্ছে...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -91,11 +201,20 @@ export default function PackagesPage() {
           <h1 className="text-2xl font-bold text-gray-800">প্যাকেজ ম্যানেজমেন্ট</h1>
           <p className="text-gray-500 mt-1">গোল্ডেন ও ডায়মন্ড প্যাকেজ পরিচালনা করুন</p>
         </div>
+        
+        {/* Add New Button */}
+        <button
+          onClick={handleAddNew}
+          className="bg-gradient-to-br from-[#3B82F6] to-[#111827] text-white px-4 py-2 rounded-lg font-semibold hover:shadow-lg transition-all duration-300 flex items-center gap-2"
+        >
+          <Plus size={18} />
+          নতুন প্যাকেজ
+        </button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {packages.map((pkg) => (
-          <div key={pkg.id} className={`bg-white rounded-2xl shadow-lg overflow-hidden border-2 ${pkg.isActive ? 'border-[#3B82F6]' : 'border-gray-300'}`}>
+          <div key={pkg._id} className={`bg-white rounded-2xl shadow-lg overflow-hidden border-2 ${pkg.isActive ? 'border-[#3B82F6]' : 'border-gray-300'}`}>
             <div className={`p-6 ${pkg.name === 'golden' ? 'bg-gradient-to-r from-amber-500 to-orange-500' : 'bg-gradient-to-r from-blue-500 to-purple-600'} text-white`}>
               <div className="flex justify-between items-start">
                 <div className="flex items-center gap-3">
@@ -107,14 +226,22 @@ export default function PackagesPage() {
                     </p>
                   </div>
                 </div>
-                <button
-                  onClick={() => toggleStatus(pkg.id)}
-                  className={`px-3 py-1 rounded-lg text-sm font-semibold ${
-                    pkg.isActive ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'
-                  } transition-colors`}
-                >
-                  {pkg.isActive ? 'নিষ্ক্রিয় করুন' : 'সক্রিয় করুন'}
-                </button>
+                <div className="flex gap-2">
+                  {/* <button
+                    onClick={() => toggleStatus(pkg._id, pkg.isActive)}
+                    className={`px-3 py-1 rounded-lg text-sm font-semibold ${
+                      pkg.isActive ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'
+                    } transition-colors`}
+                  >
+                    {pkg.isActive ? 'নিষ্ক্রিয় করুন' : 'সক্রিয় করুন'}
+                  </button> */}
+                  <button
+                    onClick={() => handleDelete(pkg._id, pkg.title)}
+                    className="px-3 py-1 rounded-lg text-sm font-semibold bg-red-600 hover:bg-red-700 text-white transition-colors"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -145,25 +272,41 @@ export default function PackagesPage() {
         ))}
       </div>
 
-      {/* Edit Modal */}
+      {/* Add/Edit Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-6">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-xl font-bold">প্যাকেজ এডিট করুন</h3>
+              <h3 className="text-xl font-bold text-black">
+                {editingPackage ? 'প্যাকেজ এডিট করুন' : 'নতুন প্যাকেজ যোগ করুন'}
+              </h3>
               <button onClick={() => setShowModal(false)} className="p-1 hover:bg-gray-100 rounded">
                 <X size={20} />
               </button>
             </div>
 
             <div className="space-y-4">
+              {/* Package Type Selection */}
+              <div>
+                <label className="block text-gray-700 font-medium mb-1">প্যাকেজ টাইপ</label>
+                <select
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value as 'golden' | 'diamond' })}
+                  className="w-full px-4 py-2 border text-black border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
+                >
+                  <option value="golden">গোল্ডেন প্যাকেজ</option>
+                  <option value="diamond">ডায়মন্ড প্যাকেজ</option>
+                </select>
+              </div>
+
               <div>
                 <label className="block text-gray-700 font-medium mb-1">টাইটেল</label>
                 <input
                   type="text"
                   value={formData.title}
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
+                  placeholder="যেমন: গোল্ডেন প্যাকেজ"
+                  className="w-full text-black px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
                 />
               </div>
 
@@ -173,7 +316,8 @@ export default function PackagesPage() {
                   type="number"
                   value={formData.price}
                   onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
+                  placeholder="যেমন: 2500"
+                  className="w-full text-black px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
                 />
               </div>
 
@@ -183,25 +327,40 @@ export default function PackagesPage() {
                   type="number"
                   value={formData.originalPrice}
                   onChange={(e) => setFormData({ ...formData, originalPrice: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
+                  placeholder="যেমন: 3500"
+                  className="w-full text-black px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
                 />
               </div>
 
               <div>
-                <label className="block text-gray-700 font-medium mb-1">ফিচারসমূহ (কমা দিয়ে আলাদা করুন)</label>
+                <label className="block text-gray-700 font-medium mb-1">
+                  ফিচারসমূহ (কমা দিয়ে আলাদা করুন)
+                </label>
                 <textarea
                   value={formData.features}
                   onChange={(e) => setFormData({ ...formData, features: e.target.value })}
                   rows={4}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
+                  placeholder="যেমন: সপ্তাহের ৭ দিন ডেলিভারি, প্রতিদিন ৩ বেলা খাবার, ফ্রি হোম ডেলিভারি"
+                  className="w-full text-black px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
                 />
               </div>
 
               <button
                 onClick={handleSave}
-                className="w-full bg-gradient-to-br from-[#3B82F6] to-[#111827] text-white py-2 rounded-lg font-semibold"
+                disabled={submitting}
+                className="w-full bg-gradient-to-br from-[#3B82F6] to-[#111827] text-white py-2 rounded-lg font-semibold hover:shadow-lg transition-all duration-300 flex items-center justify-center gap-2"
               >
-                সেভ করুন
+                {submitting ? (
+                  <>
+                    <Loader2 size={18} className="animate-spin" />
+                    সেভ হচ্ছে...
+                  </>
+                ) : (
+                  <>
+                    <Package size={18} />
+                    {editingPackage ? 'আপডেট করুন' : 'প্যাকেজ তৈরি করুন'}
+                  </>
+                )}
               </button>
             </div>
           </div>
