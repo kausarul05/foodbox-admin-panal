@@ -7,16 +7,42 @@ import StatsCard from '@/app/components/admin/StatsCard';
 import { dashboardAPI, orderAPI, subscriptionAPI } from '@/app/lib/api';
 import toast from 'react-hot-toast';
 
+// Define the Order type
+interface Order {
+  _id?: string;
+  id?: string;
+  orderId?: string;
+  userName: string;
+  totalAmount: number;
+  status: string;
+  createdAt: string;
+}
+
+// Define the Stats type
+interface Stats {
+  totalOrders: number;
+  totalRevenue: number;
+  activeSubscribers: number;
+  pendingSubscribers: number;
+}
+
+// Define Chart Data type
+interface ChartData {
+  month: string;
+  orders: number;
+  revenue: number;
+}
+
 export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({
+  const [stats, setStats] = useState<Stats>({
     totalOrders: 0,
     totalRevenue: 0,
     activeSubscribers: 0,
     pendingSubscribers: 0,
   });
   
-  const [chartData, setChartData] = useState([
+  const [chartData, setChartData] = useState<ChartData[]>([
     { month: 'Jan', orders: 0, revenue: 0 },
     { month: 'Feb', orders: 0, revenue: 0 },
     { month: 'Mar', orders: 0, revenue: 0 },
@@ -25,7 +51,7 @@ export default function DashboardPage() {
     { month: 'Jun', orders: 0, revenue: 0 },
   ]);
   
-  const [recentOrders, setRecentOrders] = useState([]);
+  const [recentOrders, setRecentOrders] = useState<Order[]>([]);
 
   useEffect(() => {
     fetchDashboardData();
@@ -67,8 +93,15 @@ export default function DashboardPage() {
       }
       
       // Update recent orders
-      if (ordersResponse.data) {
+      if (ordersResponse.data && ordersResponse.data.length > 0) {
         setRecentOrders(ordersResponse.data.slice(0, 5));
+      } else {
+        // Fallback mock data for development/demo
+        setRecentOrders([
+          { id: 'ORD001', userName: 'রহিম', totalAmount: 350, status: 'pending', createdAt: '2024-01-15' },
+          { id: 'ORD002', userName: 'করিম', totalAmount: 2500, status: 'delivered', createdAt: '2024-01-14' },
+          { id: 'ORD003', userName: 'জবা', totalAmount: 3500, status: 'preparing', createdAt: '2024-01-14' },
+        ]);
       }
       
     } catch (error) {
@@ -217,7 +250,7 @@ export default function DashboardPage() {
           </button>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full text-black min-w-[600px]">
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">অর্ডার আইডি</th>
@@ -228,9 +261,9 @@ export default function DashboardPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {recentOrders.map((order: any) => (
-                <tr key={order._id || order.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 text-sm font-mono">{order.orderId || order.id}</td>
+              {recentOrders.map((order, index) => (
+                <tr key={order._id || order.id || index} className="hover:bg-gray-50">
+                  <td className="px-4 py-3 text-sm font-mono">{order.orderId || order.id || 'N/A'}</td>
                   <td className="px-4 py-3 text-sm">{order.userName}</td>
                   <td className="px-4 py-3 text-sm">৳ {order.totalAmount}</td>
                   <td className="px-4 py-3">

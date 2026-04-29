@@ -7,8 +7,8 @@ import { AuthProvider } from '@/app/context/AuthContext';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'FoodBox Admin Panel',
-  description: 'Admin Dashboard for FoodBox Management',
+  title: 'FCS Admin Panel',
+  description: 'Admin Dashboard for FCS Management',
 };
 
 export default function RootLayout({

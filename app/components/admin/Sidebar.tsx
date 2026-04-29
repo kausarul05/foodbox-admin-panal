@@ -1,8 +1,9 @@
+// components/admin/Sidebar.tsx
 'use client';
 
 import React from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard,
   Package,
@@ -13,14 +14,15 @@ import {
   Settings,
   LogOut,
   Crown,
-  Diamond
+  X
 } from 'lucide-react';
-import toast from 'react-hot-toast';
-import { authAPI } from '@/app/lib/api';
 
-const Sidebar = () => {
+interface SidebarProps {
+  onClose?: () => void;
+}
+
+const Sidebar = ({ onClose }: SidebarProps) => {
   const pathname = usePathname();
-  const router = useRouter();
 
   const menuItems = [
     { name: 'ড্যাশবোর্ড', href: '/dashboard', icon: LayoutDashboard },
@@ -33,22 +35,23 @@ const Sidebar = () => {
   ];
 
   const handleLogout = () => {
-    // Clear all localStorage items
     localStorage.removeItem('adminToken');
     localStorage.removeItem('adminData');
-
-    // Clear sessionStorage if used
-    sessionStorage.clear();
-
-    // Show success message
-    toast.success('লগআউট সফল হয়েছে!');
-
-    // Redirect to login page
-    router.push('/login');
+    window.location.href = '/login';
   };
 
   return (
-    <aside className="w-72 bg-gradient-to-br from-[#3B82F6] to-[#111827] text-white flex flex-col">
+    <aside className="w-72 h-full bg-gradient-to-br from-[#3B82F6] to-[#111827] text-white flex flex-col shadow-xl">
+      {/* Close button for mobile */}
+      <div className="lg:hidden absolute top-4 right-4">
+        <button
+          onClick={onClose}
+          className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+        >
+          <X size={24} />
+        </button>
+      </div>
+
       <div className="p-6 border-b border-white/20">
         <div className="flex items-center gap-2">
           <div className="bg-white/20 p-2 rounded-lg">
@@ -61,20 +64,22 @@ const Sidebar = () => {
         </div>
       </div>
 
-      <nav className="flex-1 p-4 space-y-2">
+      <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
         {menuItems.map((item) => {
           const isActive = pathname === item.href;
           return (
             <Link
               key={item.name}
               href={item.href}
-              className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${isActive
+              onClick={onClose}
+              className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${
+                isActive
                   ? 'bg-white/20 text-white shadow-md'
                   : 'text-white/80 hover:bg-white/10 hover:text-white'
-                }`}
+              }`}
             >
               <item.icon size={20} />
-              <span className="font-medium">{item.name}</span>
+              <span className="font-medium text-sm md:text-base">{item.name}</span>
               {isActive && (
                 <span className="ml-auto text-xs bg-white/20 px-2 py-0.5 rounded-full">
                   এখন
@@ -88,9 +93,9 @@ const Sidebar = () => {
       <div className="p-4 border-t border-white/20">
         <button
           onClick={handleLogout}
-          className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-white/80 hover:bg-white/10 hover:text-white transition-all duration-200 group"
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-white/80 hover:bg-white/10 hover:text-white transition-all duration-200"
         >
-          <LogOut size={20} className="group-hover:scale-110 transition-transform" />
+          <LogOut size={20} />
           <span className="font-medium">লগআউট</span>
         </button>
       </div>
