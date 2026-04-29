@@ -53,7 +53,7 @@ export default function LoginPage() {
           <div className="inline-flex items-center justify-center w-20 h-20 bg-white/10 rounded-2xl mb-4">
             <Shield className="w-10 h-10 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-white">FoodBox Admin</h1>
+          <h1 className="text-3xl font-bold text-white">FCS Admin</h1>
           <p className="text-blue-200 mt-2">অ্যাডমিন প্যানেলে স্বাগতম</p>
         </div>
 
@@ -107,7 +107,7 @@ export default function LoginPage() {
           <div className="mt-6 text-center text-sm text-gray-500">
             <p>ডেমো ক্রেডেনশিয়াল:</p>
             <p>Email: admin@foodbox.com</p>
-            <p>Password: admin123</p>
+            <p>Password: admin@123</p>
           </div>
         </div>
       </div>
