@@ -1,6 +1,6 @@
 // API Base URL configuration
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || 'https://foodbox-backend.vercel.app/api'
+  process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'
 
 // Get token from localStorage
 const getToken = () => {
@@ -180,12 +180,75 @@ export const menuAPI = {
   }
 }
 
+export const transactionAPI = {
+  // Get all pending transactions (Admin)
+  getPendingTransactions: () => {
+    return apiCall('/admin/transactions/pending');
+  },
+
+  // Get all transactions (Admin) - with optional filters
+  getAllTransactions: (filters = {}) => {
+    const queryParams = new URLSearchParams(filters).toString();
+    return apiCall(`/admin/transactions${queryParams ? `?${queryParams}` : ''}`);
+  },
+
+  // Approve transaction (Admin)
+  approveTransaction: (id) => {
+    return apiCall(`/admin/transactions/${id}/approve`, {
+      method: 'PUT',
+    });
+  },
+
+  // Reject transaction (Admin)
+  rejectTransaction: (id, reason) => {
+    return apiCall(`/admin/transactions/${id}/reject`, {
+      method: 'PUT',
+      body: JSON.stringify({ reason }),
+    });
+  },
+
+  // Get transaction by ID (Admin)
+  getTransactionById: (id) => {
+    return apiCall(`/admin/transactions/${id}`);
+  },
+
+  // Get transaction stats (Admin)
+  getTransactionStats: () => {
+    return apiCall('/admin/transactions/stats');
+  },
+};
+
+export const walletAPI = {
+  // Get wallet balance (User)
+  getBalance: () => {
+    return apiCall('/wallet/balance');
+  },
+
+  // Create recharge request (User)
+  createRechargeRequest: (data) => {
+    return apiCall('/wallet/recharge', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  // Get user transactions (User)
+  getUserTransactions: () => {
+    return apiCall('/wallet/transactions');
+  },
+};
+
 // Order APIs
 export const orderAPI = {
   // Get all orders (Admin)
+  // getAllOrders: (filters = {}) => {
+  //   const queryParams = new URLSearchParams(filters).toString()
+  //   return apiCall(`/orders${queryParams ? `?${queryParams}` : ''}`)
+  // },
+
   getAllOrders: (filters = {}) => {
-    const queryParams = new URLSearchParams(filters).toString()
-    return apiCall(`/orders${queryParams ? `?${queryParams}` : ''}`)
+    const queryParams = new URLSearchParams(filters).toString();
+    return apiCall(`/orders${queryParams ? `?${queryParams}` : ''}`);
   },
 
   // Get order by ID
@@ -347,7 +410,9 @@ const API = {
   subscriptions: subscriptionAPI,
   users: userAPI,
   settings: settingsAPI,
-  export: exportAPI
+  export: exportAPI,
+  wallet: walletAPI,
+  transactions: transactionAPI,
 }
 
 export default API

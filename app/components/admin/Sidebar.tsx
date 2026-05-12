@@ -1,4 +1,3 @@
-// components/admin/Sidebar.tsx
 'use client';
 
 import React from 'react';
@@ -14,7 +13,8 @@ import {
   Settings,
   LogOut,
   Crown,
-  X
+  X,
+  DollarSign
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -29,7 +29,9 @@ const Sidebar = ({ onClose }: SidebarProps) => {
     { name: 'প্যাকেজ ম্যানেজ', href: '/dashboard/packages', icon: Package },
     { name: 'উইকলি মেনু', href: '/dashboard/weekly-menu', icon: Calendar },
     { name: 'অর্ডার লিস্ট', href: '/dashboard/orders', icon: ShoppingBag },
+    { name: 'ক্যাশ অন ডেলিভারি', href: '/dashboard/cod-orders', icon: DollarSign },
     { name: 'সাবস্ক্রাইবার লিস্ট', href: '/dashboard/subscribers', icon: Users },
+    { name: 'পেন্ডিং ট্রানজেকশন', href: '/dashboard/pending-transactions', icon: Clock },
     { name: 'পেন্ডিং সাবস্ক্রাইবার', href: '/dashboard/pending-subscribers', icon: Clock },
     { name: 'সেটিংস', href: '/dashboard/settings', icon: Settings },
   ];

@@ -1,72 +1,75 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Search, Filter, Eye, CheckCircle, XCircle, Truck, Clock, Loader2, RefreshCw, DollarSign, ShoppingBag } from 'lucide-react';
+import { 
+  DollarSign, 
+  Eye, 
+  CheckCircle, 
+  XCircle, 
+  Truck, 
+  Clock, 
+  Package as PackageIcon,
+  Loader2,
+  RefreshCw,
+  Search,
+  Filter,
+  ShoppingBag
+} from 'lucide-react';
+import { orderAPI } from '../../lib/api';
 import toast from 'react-hot-toast';
-import { orderAPI } from '@/app/lib/api';
 
-interface Order {
+interface CODOrder {
   _id: string;
   orderId: string;
-  userId: string;
   userName: string;
   phoneNumber: string;
-  package: string;
-  paymentMethod: string;
   items: Array<{ name: string; price: number; quantity: number }>;
   totalAmount: number;
+  deliveryCharge: number;
   status: 'pending' | 'confirmed' | 'preparing' | 'out_for_delivery' | 'delivered' | 'cancelled';
-  createdAt: string;
-  orderDate: string;
   deliveryDate: string;
+  deliveryTime: string;
   address: string;
   zone: string;
+  createdAt: string;
 }
 
-export default function OrdersPage() {
-  const [orders, setOrders] = useState<Order[]>([]);
+export default function CODOrdersPage() {
+  const [orders, setOrders] = useState<CODOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchOrders();
+    fetchCODOrders();
   }, []);
 
-  const fetchOrders = async () => {
+  const fetchCODOrders = async () => {
     try {
       setLoading(true);
-      // Fetch only wallet/subscription orders (not COD)
-      const response = await orderAPI.getAllOrders({ paymentMethod: 'wallet' });
-      console.log('Subscription Orders response:', response);
+      const response = await orderAPI.getAllOrders({ paymentMethod: 'cash' });
+      console.log('COD Orders:', response);
       
       if (response.success && response.data) {
-        // Filter to ensure only subscription orders
-        const subscriptionOrders = response.data.filter(
-          (order: Order) => order.paymentMethod === 'wallet' || order.paymentMethod === 'subscription'
-        );
-        setOrders(subscriptionOrders);
-      } else {
-        setOrders([]);
+        setOrders(response.data);
       }
     } catch (error) {
-      console.error('Error fetching orders:', error);
+      console.error('Error fetching COD orders:', error);
       toast.error('অর্ডার লোড করতে ব্যর্থ হয়েছে');
-      setOrders([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const updateOrderStatus = async (orderId: string, newStatus: Order['status']) => {
+  const updateOrderStatus = async (orderId: string, newStatus: CODOrder['status']) => {
     try {
       setUpdatingOrderId(orderId);
       const response = await orderAPI.updateOrderStatus(orderId, newStatus);
       
       if (response.success) {
         toast.success(`অর্ডার স্ট্যাটাস আপডেট হয়েছে: ${getStatusText(newStatus)}`);
-        await fetchOrders(); // Refresh the list
+        await fetchCODOrders(); // Refresh the list
       } else {
         toast.error(response.message || 'স্ট্যাটাস আপডেট করতে ব্যর্থ হয়েছে');
       }
@@ -102,7 +105,16 @@ export default function OrdersPage() {
     }
   };
 
-  const getStatusButtons = (order: Order) => {
+  const getMealTimeText = (time: string) => {
+    switch(time) {
+      case 'morning': return 'সকালের খাবার';
+      case 'lunch': return 'দুপুরের খাবার';
+      case 'dinner': return 'রাতের খাবার';
+      default: return time;
+    }
+  };
+
+  const getStatusButtons = (order: CODOrder) => {
     const buttons = [];
     
     switch(order.status) {
@@ -115,7 +127,7 @@ export default function OrdersPage() {
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
           >
             {updatingOrderId === order._id ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle size={16} />}
-            কনফার্ম করুন
+            অর্ডার কনফার্ম করুন
           </button>
         );
         break;
@@ -127,7 +139,7 @@ export default function OrdersPage() {
             disabled={updatingOrderId === order._id}
             className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition disabled:opacity-50"
           >
-            {updatingOrderId === order._id ? <Loader2 size={16} className="animate-spin" /> : <Clock size={16} />}
+            {updatingOrderId === order._id ? <Loader2 size={16} className="animate-spin" /> : <PackageIcon size={16} />}
             প্রস্তুত করুন
           </button>
         );
@@ -170,7 +182,7 @@ export default function OrdersPage() {
           className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition disabled:opacity-50"
         >
           {updatingOrderId === order._id ? <Loader2 size={16} className="animate-spin" /> : <XCircle size={16} />}
-          বাতিল করুন
+          অর্ডার বাতিল করুন
         </button>
       );
     }
@@ -196,6 +208,14 @@ export default function OrdersPage() {
     { value: 'cancelled', label: 'বাতিল' },
   ];
 
+  // Calculate stats
+  const totalCODOrders = orders.length;
+  const pendingCODOrders = orders.filter(o => o.status === 'pending').length;
+  const deliveredCODOrders = orders.filter(o => o.status === 'delivered').length;
+  const totalCODRevenue = orders
+    .filter(o => o.status === 'delivered')
+    .reduce((sum, o) => sum + o.totalAmount + (o.deliveryCharge || 0), 0);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -209,13 +229,14 @@ export default function OrdersPage() {
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">সাবস্ক্রিপশন অর্ডার লিস্ট</h1>
-          <p className="text-gray-500 mt-1">সাবস্ক্রিপশন আওতাধীন অর্ডার দেখুন এবং ম্যানেজ করুন</p>
+          <h1 className="text-2xl font-bold text-gray-800">ক্যাশ অন ডেলিভারি অর্ডার</h1>
+          <p className="text-gray-500 mt-1">ক্যাশ অন ডেলিভারি অর্ডার ম্যানেজ করুন</p>
         </div>
         <button
-          onClick={fetchOrders}
+          onClick={fetchCODOrders}
           disabled={loading}
           className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition"
         >
@@ -224,7 +245,7 @@ export default function OrdersPage() {
         </button>
       </div>
 
-      {/* Stats Summary */}
+      {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-white rounded-xl shadow-md p-4">
           <div className="flex items-center gap-3">
@@ -232,8 +253,8 @@ export default function OrdersPage() {
               <ShoppingBag className="w-6 h-6 text-blue-600" />
             </div>
             <div>
-              <p className="text-sm text-gray-500">মোট সাবস্ক্রিপশন অর্ডার</p>
-              <p className="text-2xl font-bold text-gray-800">{orders.length}</p>
+              <p className="text-sm text-gray-500">মোট সিওডি অর্ডার</p>
+              <p className="text-2xl font-bold text-gray-800">{totalCODOrders}</p>
             </div>
           </div>
         </div>
@@ -244,9 +265,7 @@ export default function OrdersPage() {
             </div>
             <div>
               <p className="text-sm text-gray-500">পেন্ডিং অর্ডার</p>
-              <p className="text-2xl font-bold text-gray-800">
-                {orders.filter(o => o.status === 'pending').length}
-              </p>
+              <p className="text-2xl font-bold text-gray-800">{pendingCODOrders}</p>
             </div>
           </div>
         </div>
@@ -257,9 +276,7 @@ export default function OrdersPage() {
             </div>
             <div>
               <p className="text-sm text-gray-500">ডেলিভারি সম্পন্ন</p>
-              <p className="text-2xl font-bold text-gray-800">
-                {orders.filter(o => o.status === 'delivered').length}
-              </p>
+              <p className="text-2xl font-bold text-gray-800">{deliveredCODOrders}</p>
             </div>
           </div>
         </div>
@@ -270,9 +287,7 @@ export default function OrdersPage() {
             </div>
             <div>
               <p className="text-sm text-gray-500">মোট রেভিনিউ</p>
-              <p className="text-2xl font-bold text-green-600">
-                ৳ {orders.filter(o => o.status === 'delivered').reduce((sum, o) => sum + o.totalAmount, 0).toLocaleString()}
-              </p>
+              <p className="text-2xl font-bold text-green-600">৳ {totalCODRevenue.toLocaleString()}</p>
             </div>
           </div>
         </div>
@@ -310,9 +325,9 @@ export default function OrdersPage() {
       {filteredOrders.length === 0 ? (
         <div className="bg-white rounded-2xl shadow-lg p-12 text-center">
           <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Search className="w-10 h-10 text-gray-400" />
+            <DollarSign className="w-10 h-10 text-gray-400" />
           </div>
-          <p className="text-gray-500">কোনো সাবস্ক্রিপশন অর্ডার পাওয়া যায়নি</p>
+          <p className="text-gray-500">কোনো সিওডি অর্ডার পাওয়া যায়নি</p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -321,7 +336,7 @@ export default function OrdersPage() {
               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-4">
                 <div>
                   <div className="flex items-center gap-3 mb-2">
-                    <span className="text-lg font-bold text-[#3B82F6]">#{order.orderId || order._id.slice(-6)}</span>
+                    <span className="text-lg font-bold text-[#3B82F6]">#{order.orderId}</span>
                     <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusColor(order.status)}`}>
                       {getStatusText(order.status)}
                     </span>
@@ -330,8 +345,8 @@ export default function OrdersPage() {
                   <p className="text-sm text-gray-600">{order.phoneNumber}</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-2xl font-bold text-[#3B82F6]">৳ {order.totalAmount}</p>
-                  <p className="text-sm text-gray-600">{order.package}</p>
+                  <p className="text-2xl font-bold text-green-600">৳ {order.totalAmount + (order.deliveryCharge || 0)}</p>
+                  <p className="text-sm text-gray-600">ডেলিভারি চার্জ: ৳ {order.deliveryCharge || 0}</p>
                 </div>
               </div>
 
@@ -345,19 +360,29 @@ export default function OrdersPage() {
                 <div>
                   <p className="text-xs text-gray-500 mb-1">ডেলিভারির তারিখ</p>
                   <p className="text-sm font-medium text-gray-800">
-                    {order.deliveryDate ? new Date(order.deliveryDate).toLocaleDateString('bn-BD') : 'N/A'}
+                    {new Date(order.deliveryDate).toLocaleDateString('bn-BD')}
                   </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">খাবারের সময়</p>
+                  <p className="text-sm font-medium text-gray-800">{getMealTimeText(order.deliveryTime)}</p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-500 mb-1">জোন</p>
                   <p className="text-sm font-medium text-gray-800">{order.zone}</p>
                 </div>
-                <div>
-                  <p className="text-xs text-gray-500 mb-1">আইটেম</p>
-                  <p className="text-sm font-medium text-gray-800">
-                    {order.items?.map(item => item.name).join(', ') || 'N/A'}
-                  </p>
-                </div>
+              </div>
+
+              <div className="mb-4">
+                <p className="text-xs text-gray-500 mb-1">আইটেম</p>
+                <p className="text-sm font-medium text-gray-800">
+                  {order.items?.map(item => `${item.name} (x${item.quantity})`).join(', ') || 'N/A'}
+                </p>
+              </div>
+
+              <div className="mb-4">
+                <p className="text-xs text-gray-500 mb-1">ডেলিভারি ঠিকানা</p>
+                <p className="text-sm text-gray-800">{order.address}</p>
               </div>
 
               <div className="flex flex-wrap gap-2 mt-4">
@@ -374,6 +399,3 @@ export default function OrdersPage() {
     </div>
   );
 }
-
-// Add missing imports
-// import { ShoppingBag, DollarSign } from 'lucide-react';
