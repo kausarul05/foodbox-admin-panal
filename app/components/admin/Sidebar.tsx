@@ -27,6 +27,7 @@ const Sidebar = ({ onClose }: SidebarProps) => {
 
   const menuItems = [
     { name: 'ড্যাশবোর্ড', href: '/dashboard', icon: LayoutDashboard },
+    { name: 'ফাইন্যান্স', href: '/dashboard/finance', icon: DollarSign },
     { name: 'প্যাকেজ ম্যানেজ', href: '/dashboard/packages', icon: Package },
     { name: 'উইকলি মেনু', href: '/dashboard/weekly-menu', icon: Calendar },
     { name: 'জোন ম্যানেজ', href: '/dashboard/zones', icon: MapPin },
@@ -35,6 +36,7 @@ const Sidebar = ({ onClose }: SidebarProps) => {
     { name: 'সাবস্ক্রাইবার লিস্ট', href: '/dashboard/subscribers', icon: Users },
     { name: 'পেন্ডিং ট্রানজেকশন', href: '/dashboard/pending-transactions', icon: Clock },
     { name: 'পেন্ডিং সাবস্ক্রাইবার', href: '/dashboard/pending-subscribers', icon: Clock },
+    { name: 'মিল বন্ধের তারিখ', href: '/dashboard/blocked-dates', icon: Calendar },
     { name: 'সেটিংস', href: '/dashboard/settings', icon: Settings },
   ];
 

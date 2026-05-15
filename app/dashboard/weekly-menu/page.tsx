@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Calendar, Edit, Save, X, Plus, Loader2, RefreshCw, Utensils, Package } from 'lucide-react';
+import { Calendar, Edit, Save, X, Plus, Loader2, RefreshCw, Utensils, Package, DollarSign } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { menuAPI, packageAPI } from '@/app/lib/api';
 
@@ -11,8 +11,10 @@ interface MenuItem {
   morning: string;
   lunch: string;
   dinner: string;
+  morningPrice: number;
+  lunchPrice: number;
+  dinnerPrice: number;
   package: string;
-  price: number;
   isActive?: boolean;
 }
 
@@ -31,6 +33,8 @@ export default function WeeklyMenuPage() {
   const [selectedPackageId, setSelectedPackageId] = useState<string>('');
   const [editingCell, setEditingCell] = useState<{ day: string; meal: string } | null>(null);
   const [editValue, setEditValue] = useState('');
+  const [editingPrice, setEditingPrice] = useState<{ day: string; meal: string } | null>(null);
+  const [editPriceValue, setEditPriceValue] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [menuData, setMenuData] = useState<{ [key: string]: MenuItem[] }>({});
@@ -54,7 +58,7 @@ export default function WeeklyMenuPage() {
       setLoading(true);
       const response = await packageAPI.getAllPackages();
       console.log('Packages response:', response);
-      
+
       if (response.success && response.data && response.data.length > 0) {
         const activePackages = response.data.filter((pkg: PackageType) => pkg.isActive);
         setPackages(activePackages);
@@ -75,12 +79,12 @@ export default function WeeklyMenuPage() {
       setSaving(true);
       const selectedPkg = packages.find(p => p._id === selectedPackageId);
       if (!selectedPkg) return;
-      
+
       const response = await menuAPI.getMenuByPackage(selectedPkg.name);
       console.log('Menu response:', response);
-      
+
       if (response.success && response.data && response.data.length > 0) {
-        const sortedData = response.data.sort((a: MenuItem, b: MenuItem) => 
+        const sortedData = response.data.sort((a: MenuItem, b: MenuItem) =>
           days.indexOf(a.day) - days.indexOf(b.day)
         );
         setMenuData(prev => ({ ...prev, [selectedPackageId]: sortedData }));
@@ -106,19 +110,21 @@ export default function WeeklyMenuPage() {
       morning: 'নতুন আইটেম যোগ করুন',
       lunch: 'নতুন আইটেম যোগ করুন',
       dinner: 'নতুন আইটেম যোগ করুন',
-      price: 50,
+      morningPrice: 50,
+      lunchPrice: 80,
+      dinnerPrice: 100,
     }));
 
     try {
       setSaving(true);
-      
+
       for (const item of defaultMenuItems) {
         await menuAPI.createMenuItem(item);
       }
-      
+
       toast.success('নতুন মেনু তৈরি হয়েছে!');
       await fetchMenuData();
-      
+
     } catch (error) {
       console.error('Error creating menu:', error);
       toast.error('মেনু তৈরি করতে ব্যর্থ হয়েছে');
@@ -137,13 +143,15 @@ export default function WeeklyMenuPage() {
       morning: 'নতুন আইটেম যোগ করুন',
       lunch: 'নতুন আইটেম যোগ করুন',
       dinner: 'নতুন আইটেম যোগ করুন',
-      price: 50,
+      morningPrice: 50,
+      lunchPrice: 80,
+      dinnerPrice: 100,
     };
 
     try {
       setSaving(true);
       const response = await menuAPI.createMenuItem(defaultMenuItem);
-      
+
       if (response.success) {
         toast.success(`${day} এর মেনু যোগ হয়েছে!`);
         await fetchMenuData();
@@ -161,6 +169,66 @@ export default function WeeklyMenuPage() {
     setEditValue(currentValue);
   };
 
+  const handleEditPrice = (day: string, meal: string, currentPrice: number) => {
+    setEditingPrice({ day, meal });
+    setEditPriceValue(currentPrice.toString());
+  };
+
+  const handleSavePrice = async () => {
+    if (!editingPrice) return;
+
+    const selectedPkg = packages.find(p => p._id === selectedPackageId);
+    if (!selectedPkg) return;
+
+    try {
+      setSaving(true);
+
+      const currentMenu = menuData[selectedPackageId] || [];
+      const updatedMenu = currentMenu.map(item => {
+        if (item.day === editingPrice.day) {
+          const priceField = `${editingPrice.meal}Price` as keyof MenuItem;
+          return { ...item, [priceField]: parseInt(editPriceValue) };
+        }
+        return item;
+      });
+
+      setMenuData(prev => ({ ...prev, [selectedPackageId]: updatedMenu }));
+
+      const updatedItem = updatedMenu.find(item => item.day === editingPrice.day);
+
+      if (updatedItem) {
+        const menuDataToSave = {
+          day: updatedItem.day,
+          package: selectedPkg.name,
+          morning: updatedItem.morning,
+          lunch: updatedItem.lunch,
+          dinner: updatedItem.dinner,
+          morningPrice: updatedItem.morningPrice,
+          lunchPrice: updatedItem.lunchPrice,
+          dinnerPrice: updatedItem.dinnerPrice,
+        };
+
+        if (updatedItem._id) {
+          await menuAPI.updateMenuItem(updatedItem._id, menuDataToSave);
+        } else {
+          await menuAPI.createMenuItem(menuDataToSave);
+        }
+
+        toast.success(`${getMealName(editingPrice.meal)}র মূল্য আপডেট হয়েছে!`);
+      }
+
+      setEditingPrice(null);
+      setEditPriceValue('');
+      await fetchMenuData();
+
+    } catch (error: any) {
+      console.error('Error saving price:', error);
+      toast.error(error.message || 'মূল্য সেভ করতে ব্যর্থ হয়েছে');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleSave = async () => {
     if (!editingCell) return;
 
@@ -169,7 +237,7 @@ export default function WeeklyMenuPage() {
 
     try {
       setSaving(true);
-      
+
       const currentMenu = menuData[selectedPackageId] || [];
       const updatedMenu = currentMenu.map(item => {
         if (item.day === editingCell.day) {
@@ -177,11 +245,11 @@ export default function WeeklyMenuPage() {
         }
         return item;
       });
-      
+
       setMenuData(prev => ({ ...prev, [selectedPackageId]: updatedMenu }));
 
       const updatedItem = updatedMenu.find(item => item.day === editingCell.day);
-      
+
       if (updatedItem) {
         const menuDataToSave = {
           day: updatedItem.day,
@@ -189,7 +257,9 @@ export default function WeeklyMenuPage() {
           morning: updatedItem.morning,
           lunch: updatedItem.lunch,
           dinner: updatedItem.dinner,
-          price: updatedItem.price,
+          morningPrice: updatedItem.morningPrice,
+          lunchPrice: updatedItem.lunchPrice,
+          dinnerPrice: updatedItem.dinnerPrice,
         };
 
         if (updatedItem._id) {
@@ -197,14 +267,14 @@ export default function WeeklyMenuPage() {
         } else {
           await menuAPI.createMenuItem(menuDataToSave);
         }
-        
+
         toast.success('মেনু আপডেট হয়েছে!');
       }
-      
+
       setEditingCell(null);
       setEditValue('');
       await fetchMenuData();
-      
+
     } catch (error: any) {
       console.error('Error saving menu:', error);
       toast.error(error.message || 'মেনু সেভ করতে ব্যর্থ হয়েছে');
@@ -213,10 +283,19 @@ export default function WeeklyMenuPage() {
     }
   };
 
+  const getMealName = (meal: string) => {
+    switch(meal) {
+      case 'morning': return 'সকালের খাবারে';
+      case 'lunch': return 'দুপুরের খাবারে';
+      case 'dinner': return 'রাতের খাবারে';
+      default: return meal;
+    }
+  };
+
   const meals = [
-    { key: 'morning', label: 'সকালের খাবার', icon: '🌅' },
-    { key: 'lunch', label: 'দুপুরের খাবার', icon: '☀️' },
-    { key: 'dinner', label: 'রাতের খাবার', icon: '🌙' },
+    { key: 'morning', label: 'সকালের খাবার', icon: '🌅', priceKey: 'morningPrice' },
+    { key: 'lunch', label: 'দুপুরের খাবার', icon: '☀️', priceKey: 'lunchPrice' },
+    { key: 'dinner', label: 'রাতের খাবার', icon: '🌙', priceKey: 'dinnerPrice' },
   ];
 
   const currentMenu = menuData[selectedPackageId] || [];
@@ -268,11 +347,10 @@ export default function WeeklyMenuPage() {
             <button
               key={pkg._id}
               onClick={() => setSelectedPackageId(pkg._id)}
-              className={`px-6 py-2 rounded-lg font-semibold transition-all ${
-                selectedPackageId === pkg._id
-                  ? 'bg-gradient-to-r from-[#3B82F6] to-[#111827] text-white shadow-lg'
-                  : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
-              }`}
+              className={`px-6 py-2 rounded-lg font-semibold transition-all ${selectedPackageId === pkg._id
+                ? 'bg-gradient-to-r from-[#3B82F6] to-[#111827] text-white shadow-lg'
+                : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                }`}
             >
               {pkg.title}
             </button>
@@ -308,7 +386,7 @@ export default function WeeklyMenuPage() {
           <h1 className="text-2xl font-bold text-gray-800">উইকলি মেনু ম্যানেজমেন্ট</h1>
           <p className="text-gray-500 mt-1">{selectedPackage?.title} প্যাকেজের মেনু এডিট করুন</p>
         </div>
-        
+
         {/* Refresh Button */}
         <button
           onClick={fetchMenuData}
@@ -326,11 +404,10 @@ export default function WeeklyMenuPage() {
           <button
             key={pkg._id}
             onClick={() => setSelectedPackageId(pkg._id)}
-            className={`px-6 py-2 rounded-lg font-semibold transition-all ${
-              selectedPackageId === pkg._id
-                ? 'bg-gradient-to-r from-[#3B82F6] to-[#111827] text-white shadow-lg'
-                : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
-            }`}
+            className={`px-6 py-2 rounded-lg font-semibold transition-all ${selectedPackageId === pkg._id
+              ? 'bg-gradient-to-r from-[#3B82F6] to-[#111827] text-white shadow-lg'
+              : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+              }`}
           >
             {pkg.title}
           </button>
@@ -340,26 +417,39 @@ export default function WeeklyMenuPage() {
       {/* Menu Table */}
       <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full min-w-[800px]">
             <thead className="bg-gradient-to-r from-[#3B82F6] to-[#111827]">
               <tr>
                 <th className="px-4 py-3 text-left text-white font-semibold">দিন</th>
-                {meals.map(meal => (
-                  <th key={meal.key} className="px-4 py-3 text-left text-white font-semibold">
-                    {meal.icon} {meal.label}
-                  </th>
-                ))}
+                <th className="px-4 py-3 text-left text-white font-semibold">
+                  🌅 সকালের খাবার
+                </th>
+                <th className="px-4 py-3 text-left text-white font-semibold">
+                  💰 দাম
+                </th>
+                <th className="px-4 py-3 text-left text-white font-semibold">
+                  ☀️ দুপুরের খাবার
+                </th>
+                <th className="px-4 py-3 text-left text-white font-semibold">
+                  💰 দাম
+                </th>
+                <th className="px-4 py-3 text-left text-white font-semibold">
+                  🌙 রাতের খাবার
+                </th>
+                <th className="px-4 py-3 text-left text-white font-semibold">
+                  💰 দাম
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
               {days.map((day) => {
                 const menuItem = currentMenu.find(item => item.day === day);
-                
+
                 if (!menuItem) {
                   return (
                     <tr key={day} className="hover:bg-gray-50">
                       <td className="px-4 py-3 font-medium text-gray-800">{day}</td>
-                      <td colSpan={3} className="px-4 py-3 text-center text-gray-400">
+                      <td colSpan={6} className="px-4 py-3 text-center text-gray-400">
                         <button
                           onClick={() => handleAddSingleDayMenu(day)}
                           disabled={saving}
@@ -372,48 +462,196 @@ export default function WeeklyMenuPage() {
                     </tr>
                   );
                 }
-                
+
                 return (
                   <tr key={day} className="hover:bg-gray-50">
                     <td className="px-4 py-3 font-medium text-gray-800">{menuItem.day}</td>
-                    {meals.map(meal => (
-                      <td key={meal.key} className="px-4 py-3">
-                        {editingCell?.day === menuItem.day && editingCell?.meal === meal.key ? (
-                          <div className="flex gap-2">
-                            <input
-                              type="text"
-                              value={editValue}
-                              onChange={(e) => setEditValue(e.target.value)}
-                              className="flex-1 px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
-                              autoFocus
-                            />
-                            <button 
-                              onClick={handleSave} 
-                              disabled={saving}
-                              className="p-1 text-green-600 hover:bg-green-50 rounded disabled:opacity-50"
-                            >
-                              <Save size={16} />
-                            </button>
-                            <button 
-                              onClick={() => setEditingCell(null)} 
-                              className="p-1 text-red-600 hover:bg-red-50 rounded"
-                            >
-                              <X size={16} />
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="flex justify-between items-center group">
-                            <span className="text-gray-700">{menuItem[meal.key as keyof MenuItem]}</span>
-                            <button
-                              onClick={() => handleEdit(menuItem.day, meal.key, menuItem[meal.key as keyof MenuItem] as string)}
-                              className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-[#3B82F6] transition"
-                            >
-                              <Edit size={14} />
-                            </button>
-                          </div>
-                        )}
-                       </td>
-                    ))}
+                    
+                    {/* Morning Meal */}
+                    <td className="px-4 py-3">
+                      {editingCell?.day === menuItem.day && editingCell?.meal === 'morning' ? (
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={editValue}
+                            onChange={(e) => setEditValue(e.target.value)}
+                            className="flex-1 text-black px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
+                            autoFocus
+                          />
+                          <button onClick={handleSave} disabled={saving} className="p-1 text-green-600 hover:bg-green-50 rounded">
+                            <Save size={16} />
+                          </button>
+                          <button onClick={() => setEditingCell(null)} className="p-1 text-red-600 hover:bg-red-50 rounded">
+                            <X size={16} />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex justify-between items-center group">
+                          <span className="text-gray-700">{menuItem.morning}</span>
+                          <button
+                            onClick={() => handleEdit(menuItem.day, 'morning', menuItem.morning)}
+                            className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-[#3B82F6] transition"
+                          >
+                            <Edit size={14} />
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                    
+                    {/* Morning Price */}
+                    <td className="px-4 py-3">
+                      {editingPrice?.day === menuItem.day && editingPrice?.meal === 'morning' ? (
+                        <div className="flex gap-2">
+                          <input
+                            type="number"
+                            value={editPriceValue}
+                            onChange={(e) => setEditPriceValue(e.target.value)}
+                            className="w-24 text-black px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
+                            autoFocus
+                          />
+                          <button onClick={handleSavePrice} disabled={saving} className="p-1 text-green-600 hover:bg-green-50 rounded">
+                            <Save size={16} />
+                          </button>
+                          <button onClick={() => setEditingPrice(null)} className="p-1 text-red-600 hover:bg-red-50 rounded">
+                            <X size={16} />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex justify-between items-center group">
+                          <span className="text-gray-700 font-semibold text-[#3B82F6]">৳ {menuItem.morningPrice}</span>
+                          <button
+                            onClick={() => handleEditPrice(menuItem.day, 'morning', menuItem.morningPrice)}
+                            className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-[#3B82F6] transition"
+                          >
+                            <Edit size={14} />
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                    
+                    {/* Lunch Meal */}
+                    <td className="px-4 py-3">
+                      {editingCell?.day === menuItem.day && editingCell?.meal === 'lunch' ? (
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={editValue}
+                            onChange={(e) => setEditValue(e.target.value)}
+                            className="flex-1 text-black px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
+                            autoFocus
+                          />
+                          <button onClick={handleSave} disabled={saving} className="p-1 text-green-600 hover:bg-green-50 rounded">
+                            <Save size={16} />
+                          </button>
+                          <button onClick={() => setEditingCell(null)} className="p-1 text-red-600 hover:bg-red-50 rounded">
+                            <X size={16} />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex justify-between items-center group">
+                          <span className="text-gray-700">{menuItem.lunch}</span>
+                          <button
+                            onClick={() => handleEdit(menuItem.day, 'lunch', menuItem.lunch)}
+                            className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-[#3B82F6] transition"
+                          >
+                            <Edit size={14} />
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                    
+                    {/* Lunch Price */}
+                    <td className="px-4 py-3">
+                      {editingPrice?.day === menuItem.day && editingPrice?.meal === 'lunch' ? (
+                        <div className="flex gap-2">
+                          <input
+                            type="number"
+                            value={editPriceValue}
+                            onChange={(e) => setEditPriceValue(e.target.value)}
+                            className="w-24 text-black px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
+                            autoFocus
+                          />
+                          <button onClick={handleSavePrice} disabled={saving} className="p-1 text-green-600 hover:bg-green-50 rounded">
+                            <Save size={16} />
+                          </button>
+                          <button onClick={() => setEditingPrice(null)} className="p-1 text-red-600 hover:bg-red-50 rounded">
+                            <X size={16} />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex justify-between items-center group">
+                          <span className="text-gray-700 font-semibold text-[#3B82F6]">৳ {menuItem.lunchPrice}</span>
+                          <button
+                            onClick={() => handleEditPrice(menuItem.day, 'lunch', menuItem.lunchPrice)}
+                            className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-[#3B82F6] transition"
+                          >
+                            <Edit size={14} />
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                    
+                    {/* Dinner Meal */}
+                    <td className="px-4 py-3">
+                      {editingCell?.day === menuItem.day && editingCell?.meal === 'dinner' ? (
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={editValue}
+                            onChange={(e) => setEditValue(e.target.value)}
+                            className="flex-1 text-black px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
+                            autoFocus
+                          />
+                          <button onClick={handleSave} disabled={saving} className="p-1 text-green-600 hover:bg-green-50 rounded">
+                            <Save size={16} />
+                          </button>
+                          <button onClick={() => setEditingCell(null)} className="p-1 text-red-600 hover:bg-red-50 rounded">
+                            <X size={16} />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex justify-between items-center group">
+                          <span className="text-gray-700">{menuItem.dinner}</span>
+                          <button
+                            onClick={() => handleEdit(menuItem.day, 'dinner', menuItem.dinner)}
+                            className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-[#3B82F6] transition"
+                          >
+                            <Edit size={14} />
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                    
+                    {/* Dinner Price */}
+                    <td className="px-4 py-3">
+                      {editingPrice?.day === menuItem.day && editingPrice?.meal === 'dinner' ? (
+                        <div className="flex gap-2">
+                          <input
+                            type="number"
+                            value={editPriceValue}
+                            onChange={(e) => setEditPriceValue(e.target.value)}
+                            className="w-24 text-black px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
+                            autoFocus
+                          />
+                          <button onClick={handleSavePrice} disabled={saving} className="p-1 text-green-600 hover:bg-green-50 rounded">
+                            <Save size={16} />
+                          </button>
+                          <button onClick={() => setEditingPrice(null)} className="p-1 text-red-600 hover:bg-red-50 rounded">
+                            <X size={16} />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex justify-between items-center group">
+                          <span className="text-gray-700 font-semibold text-[#3B82F6]">৳ {menuItem.dinnerPrice}</span>
+                          <button
+                            onClick={() => handleEditPrice(menuItem.day, 'dinner', menuItem.dinnerPrice)}
+                            className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-[#3B82F6] transition"
+                          >
+                            <Edit size={14} />
+                          </button>
+                        </div>
+                      )}
+                    </td>
                   </tr>
                 );
               })}
@@ -431,7 +669,7 @@ export default function WeeklyMenuPage() {
         </div>
         <div className="bg-green-50 rounded-lg p-4">
           <p className="text-sm text-green-800 flex items-center gap-2">
-            💾 প্রতিটি পরিবর্তন স্বয়ংক্রিয়ভাবে সেভ হয়ে যায়
+            💰 প্রতিটি খাবারের দাম আলাদাভাবে এডিট করতে পারবেন
           </p>
         </div>
       </div>

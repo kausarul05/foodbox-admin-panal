@@ -180,6 +180,61 @@ export const menuAPI = {
   }
 }
 
+export const expenseAPI = {
+  getAllExpenses: (filters = {}) => {
+    const queryParams = new URLSearchParams(filters).toString();
+    return apiCall(`/admin/expenses${queryParams ? `?${queryParams}` : ''}`);
+  },
+  createExpense: (data) => {
+    return apiCall('/admin/expenses', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+  deleteExpense: (id) => {
+    return apiCall(`/admin/expenses/${id}`, {
+      method: 'DELETE',
+    });
+  },
+  getStats: (filters = {}) => {
+    const queryParams = new URLSearchParams(filters).toString();
+    return apiCall(`/admin/expenses/stats${queryParams ? `?${queryParams}` : ''}`);
+  },
+};
+
+// Manual Order APIs
+export const manualOrderAPI = {
+  getAllOrders: (filters = {}) => {
+    const queryParams = new URLSearchParams(filters).toString();
+    return apiCall(`/admin/manual-orders${queryParams ? `?${queryParams}` : ''}`);
+  },
+  createOrder: (data) => {
+    return apiCall('/admin/manual-orders', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+  updateOrderStatus: (id, status) => {
+    return apiCall(`/admin/manual-orders/${id}/status`, {
+      method: 'PUT',
+      body: JSON.stringify({ status }),
+    });
+  },
+  deleteOrder: (id) => {
+    return apiCall(`/admin/manual-orders/${id}`, {
+      method: 'DELETE',
+    });
+  },
+};
+
+// Profit Stats API
+export const profitAPI = {
+  getStats: (filters = {}) => {
+    const queryParams = new URLSearchParams(filters).toString();
+    return apiCall(`/admin/profit-stats${queryParams ? `?${queryParams}` : ''}`);
+  },
+};
+
 export const transactionAPI = {
   // Get all pending transactions (Admin)
   getPendingTransactions: () => {
@@ -268,8 +323,15 @@ export const orderAPI = {
   cancelOrder: (id, reason) => {
     return apiCall(`/orders/${id}/cancel`, {
       method: 'PUT',
-      body: JSON.stringify({ reason })
-    })
+      body: JSON.stringify({ reason }),
+    });
+  },
+
+  checkDateBlocked: (date) => {
+    return apiCall('/blocked-dates/check', {
+      method: 'POST',
+      body: JSON.stringify({ date }),
+    });
   },
 
   // Get order stats (Admin)
@@ -277,6 +339,23 @@ export const orderAPI = {
     return apiCall('/orders/stats')
   }
 }
+
+export const blockedDateAPI = {
+  getAllBlockedDates: () => {
+    return apiCall('/admin/blocked-dates');
+  },
+  addBlockedDate: (date, reason) => {
+    return apiCall('/admin/blocked-dates', {
+      method: 'POST',
+      body: JSON.stringify({ date, reason }),
+    });
+  },
+  removeBlockedDate: (id) => {
+    return apiCall(`/admin/blocked-dates/${id}`, {
+      method: 'DELETE',
+    });
+  },
+};
 
 // Subscription APIs
 export const subscriptionAPI = {

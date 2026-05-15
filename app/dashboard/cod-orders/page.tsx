@@ -13,7 +13,12 @@ import {
   RefreshCw,
   Search,
   Filter,
-  ShoppingBag
+  ShoppingBag,
+  Users,
+  User,
+  MapPin,
+  Phone,
+  Calendar
 } from 'lucide-react';
 import { orderAPI } from '../../lib/api';
 import toast from 'react-hot-toast';
@@ -26,6 +31,9 @@ interface CODOrder {
   items: Array<{ name: string; price: number; quantity: number }>;
   totalAmount: number;
   deliveryCharge: number;
+  package: string;
+  specialInstructions?: string;
+  orderType?: 'self' | 'guest';
   status: 'pending' | 'confirmed' | 'preparing' | 'out_for_delivery' | 'delivered' | 'cancelled';
   deliveryDate: string;
   deliveryTime: string;
@@ -39,6 +47,7 @@ export default function CODOrdersPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [filterOrderType, setFilterOrderType] = useState('all');
   const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -52,7 +61,14 @@ export default function CODOrdersPage() {
       console.log('COD Orders:', response);
       
       if (response.success && response.data) {
-        setOrders(response.data);
+        // Process orders to determine guest status
+        const processedOrders = response.data.map((order: CODOrder) => ({
+          ...order,
+          // Determine if guest order by specialInstructions or package
+          orderType: (order.specialInstructions === 'Guest Meal Order' || order.package === 'Guest') ? 'guest' : 'self'
+        }));
+        setOrders(processedOrders);
+        console.log('Processed Orders with orderType:', processedOrders);
       }
     } catch (error) {
       console.error('Error fetching COD orders:', error);
@@ -69,7 +85,7 @@ export default function CODOrdersPage() {
       
       if (response.success) {
         toast.success(`অর্ডার স্ট্যাটাস আপডেট হয়েছে: ${getStatusText(newStatus)}`);
-        await fetchCODOrders(); // Refresh the list
+        await fetchCODOrders();
       } else {
         toast.error(response.message || 'স্ট্যাটাস আপডেট করতে ব্যর্থ হয়েছে');
       }
@@ -105,6 +121,13 @@ export default function CODOrdersPage() {
     }
   };
 
+  const getOrderTypeBadge = (orderType?: string) => {
+    if (orderType === 'guest') {
+      return { color: 'bg-purple-100 text-purple-700', icon: Users, text: 'গেস্ট অর্ডার' };
+    }
+    return { color: 'bg-blue-100 text-blue-700', icon: User, text: 'নিয়মিত অর্ডার' };
+  };
+
   const getMealTimeText = (time: string) => {
     switch(time) {
       case 'morning': return 'সকালের খাবার';
@@ -124,10 +147,10 @@ export default function CODOrdersPage() {
             key="confirm"
             onClick={() => updateOrderStatus(order._id, 'confirmed')}
             disabled={updatingOrderId === order._id}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
+            className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50 text-sm"
           >
-            {updatingOrderId === order._id ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle size={16} />}
-            অর্ডার কনফার্ম করুন
+            {updatingOrderId === order._id ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />}
+            কনফার্ম
           </button>
         );
         break;
@@ -137,10 +160,10 @@ export default function CODOrdersPage() {
             key="prepare"
             onClick={() => updateOrderStatus(order._id, 'preparing')}
             disabled={updatingOrderId === order._id}
-            className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition disabled:opacity-50"
+            className="flex items-center gap-2 px-3 py-1.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition disabled:opacity-50 text-sm"
           >
-            {updatingOrderId === order._id ? <Loader2 size={16} className="animate-spin" /> : <PackageIcon size={16} />}
-            প্রস্তুত করুন
+            {updatingOrderId === order._id ? <Loader2 size={14} className="animate-spin" /> : <PackageIcon size={14} />}
+            প্রস্তুত
           </button>
         );
         break;
@@ -150,10 +173,10 @@ export default function CODOrdersPage() {
             key="out_for_delivery"
             onClick={() => updateOrderStatus(order._id, 'out_for_delivery')}
             disabled={updatingOrderId === order._id}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition disabled:opacity-50"
+            className="flex items-center gap-2 px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition disabled:opacity-50 text-sm"
           >
-            {updatingOrderId === order._id ? <Loader2 size={16} className="animate-spin" /> : <Truck size={16} />}
-            ডেলিভারিতে পাঠান
+            {updatingOrderId === order._id ? <Loader2 size={14} className="animate-spin" /> : <Truck size={14} />}
+            ডেলিভারি
           </button>
         );
         break;
@@ -163,26 +186,25 @@ export default function CODOrdersPage() {
             key="deliver"
             onClick={() => updateOrderStatus(order._id, 'delivered')}
             disabled={updatingOrderId === order._id}
-            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition disabled:opacity-50"
+            className="flex items-center gap-2 px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition disabled:opacity-50 text-sm"
           >
-            {updatingOrderId === order._id ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle size={16} />}
-            ডেলিভারি সম্পন্ন করুন
+            {updatingOrderId === order._id ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />}
+            সম্পন্ন
           </button>
         );
         break;
     }
     
-    // Add cancel button for non-delivered/non-cancelled orders
     if (!['delivered', 'cancelled'].includes(order.status)) {
       buttons.push(
         <button
           key="cancel"
           onClick={() => updateOrderStatus(order._id, 'cancelled')}
           disabled={updatingOrderId === order._id}
-          className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition disabled:opacity-50"
+          className="flex items-center gap-2 px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition disabled:opacity-50 text-sm"
         >
-          {updatingOrderId === order._id ? <Loader2 size={16} className="animate-spin" /> : <XCircle size={16} />}
-          অর্ডার বাতিল করুন
+          {updatingOrderId === order._id ? <Loader2 size={14} className="animate-spin" /> : <XCircle size={14} />}
+          বাতিল
         </button>
       );
     }
@@ -190,16 +212,34 @@ export default function CODOrdersPage() {
     return buttons;
   };
 
+  // Filter orders based on search, status, and order type
   const filteredOrders = orders.filter(order => {
     const matchesSearch = order.userName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          order.orderId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          order.phoneNumber?.includes(searchTerm);
-    const matchesFilter = filterStatus === 'all' || order.status === filterStatus;
-    return matchesSearch && matchesFilter;
+    const matchesStatus = filterStatus === 'all' || order.status === filterStatus;
+    
+    // Order type filtering - important fix
+    let matchesOrderType = true;
+    if (filterOrderType === 'guest') {
+      matchesOrderType = order.orderType === 'guest';
+    } else if (filterOrderType === 'self') {
+      matchesOrderType = order.orderType === 'self';
+    }
+    
+    console.log('Filter check:', {
+      orderId: order.orderId,
+      orderType: order.orderType,
+      filterOrderType,
+      matchesOrderType,
+      specialInstructions: order.specialInstructions
+    });
+    
+    return matchesSearch && matchesStatus && matchesOrderType;
   });
 
   const statusOptions = [
-    { value: 'all', label: 'সব' },
+    { value: 'all', label: 'সব স্ট্যাটাস' },
     { value: 'pending', label: 'পেন্ডিং' },
     { value: 'confirmed', label: 'কনফার্মড' },
     { value: 'preparing', label: 'প্রস্তুত হচ্ছে' },
@@ -208,10 +248,17 @@ export default function CODOrdersPage() {
     { value: 'cancelled', label: 'বাতিল' },
   ];
 
+  const orderTypeOptions = [
+    { value: 'all', label: 'সব অর্ডার' },
+    { value: 'self', label: 'নিয়মিত অর্ডার' },
+    { value: 'guest', label: 'গেস্ট অর্ডার' },
+  ];
+
   // Calculate stats
   const totalCODOrders = orders.length;
   const pendingCODOrders = orders.filter(o => o.status === 'pending').length;
   const deliveredCODOrders = orders.filter(o => o.status === 'delivered').length;
+  const guestCODOrders = orders.filter(o => o.orderType === 'guest').length;
   const totalCODRevenue = orders
     .filter(o => o.status === 'delivered')
     .reduce((sum, o) => sum + o.totalAmount + (o.deliveryCharge || 0), 0);
@@ -230,7 +277,7 @@ export default function CODOrdersPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center flex-wrap gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">ক্যাশ অন ডেলিভারি অর্ডার</h1>
           <p className="text-gray-500 mt-1">ক্যাশ অন ডেলিভারি অর্ডার ম্যানেজ করুন</p>
@@ -246,7 +293,7 @@ export default function CODOrdersPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <div className="bg-white rounded-xl shadow-md p-4">
           <div className="flex items-center gap-3">
             <div className="bg-blue-100 p-3 rounded-full">
@@ -283,7 +330,18 @@ export default function CODOrdersPage() {
         <div className="bg-white rounded-xl shadow-md p-4">
           <div className="flex items-center gap-3">
             <div className="bg-purple-100 p-3 rounded-full">
-              <DollarSign className="w-6 h-6 text-purple-600" />
+              <Users className="w-6 h-6 text-purple-600" />
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">গেস্ট অর্ডার</p>
+              <p className="text-2xl font-bold text-gray-800">{guestCODOrders}</p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-white rounded-xl shadow-md p-4">
+          <div className="flex items-center gap-3">
+            <div className="bg-emerald-100 p-3 rounded-full">
+              <DollarSign className="w-6 h-6 text-emerald-600" />
             </div>
             <div>
               <p className="text-sm text-gray-500">মোট রেভিনিউ</p>
@@ -295,8 +353,8 @@ export default function CODOrdersPage() {
 
       {/* Filters */}
       <div className="bg-white rounded-2xl shadow-lg p-4">
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="flex-1 relative">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
             <input
               type="text"
@@ -306,14 +364,26 @@ export default function CODOrdersPage() {
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3B82F6] text-gray-800"
             />
           </div>
-          <div className="flex gap-2">
-            <Filter size={20} className="text-gray-400 mt-2" />
+          <div className="relative">
+            <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3B82F6] text-gray-800"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3B82F6] text-gray-800 appearance-none bg-white"
             >
               {statusOptions.map(option => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </div>
+          <div className="relative">
+            <Users className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+            <select
+              value={filterOrderType}
+              onChange={(e) => setFilterOrderType(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3B82F6] text-gray-800 appearance-none bg-white"
+            >
+              {orderTypeOptions.map(option => (
                 <option key={option.value} value={option.value}>{option.label}</option>
               ))}
             </select>
@@ -321,7 +391,7 @@ export default function CODOrdersPage() {
         </div>
       </div>
 
-      {/* Orders List */}
+      {/* Orders Grid - 3 columns */}
       {filteredOrders.length === 0 ? (
         <div className="bg-white rounded-2xl shadow-lg p-12 text-center">
           <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -330,70 +400,109 @@ export default function CODOrdersPage() {
           <p className="text-gray-500">কোনো সিওডি অর্ডার পাওয়া যায়নি</p>
         </div>
       ) : (
-        <div className="space-y-4">
-          {filteredOrders.map((order) => (
-            <div key={order._id} className="bg-white rounded-2xl shadow-lg p-6 hover:shadow-xl transition-shadow">
-              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-4">
-                <div>
-                  <div className="flex items-center gap-3 mb-2">
-                    <span className="text-lg font-bold text-[#3B82F6]">#{order.orderId}</span>
-                    <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusColor(order.status)}`}>
-                      {getStatusText(order.status)}
-                    </span>
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+          {filteredOrders.map((order) => {
+            const orderTypeBadge = getOrderTypeBadge(order.orderType);
+            const OrderTypeIcon = orderTypeBadge.icon;
+            
+            return (
+              <div key={order._id} className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-shadow overflow-hidden">
+                {/* Card Header */}
+                <div className={`p-4 ${order.orderType === 'guest' ? 'bg-gradient-to-r from-purple-500 to-purple-600' : 'bg-gradient-to-r from-orange-500 to-red-500'} text-white`}>
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-sm font-mono opacity-80">#{order.orderId || order._id.slice(-8)}</span>
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${getStatusColor(order.status)}`}>
+                          {getStatusText(order.status)}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 mt-2">
+                        <OrderTypeIcon size={16} />
+                        <span className="text-sm font-medium">{orderTypeBadge.text}</span>
+                      </div>
+                      {order.specialInstructions === 'Guest Meal Order' && (
+                        <div className="mt-1">
+                          <span className="inline-block px-2 py-0.5 bg-white/20 rounded-full text-xs">
+                            🧑‍🤝‍🧑 গেস্ট অর্ডার
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xl font-bold">৳ {order.totalAmount + (order.deliveryCharge || 0)}</p>
+                      <p className="text-xs opacity-80">ডেলিভারি চার্জ: ৳ {order.deliveryCharge || 0}</p>
+                    </div>
                   </div>
-                  <p className="font-semibold text-gray-800">{order.userName}</p>
-                  <p className="text-sm text-gray-600">{order.phoneNumber}</p>
                 </div>
-                <div className="text-right">
-                  <p className="text-2xl font-bold text-green-600">৳ {order.totalAmount + (order.deliveryCharge || 0)}</p>
-                  <p className="text-sm text-gray-600">ডেলিভারি চার্জ: ৳ {order.deliveryCharge || 0}</p>
-                </div>
-              </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 py-4 border-t border-b border-gray-100">
-                <div>
-                  <p className="text-xs text-gray-500 mb-1">অর্ডারের তারিখ</p>
-                  <p className="text-sm font-medium text-gray-800">
-                    {new Date(order.createdAt).toLocaleDateString('bn-BD')}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 mb-1">ডেলিভারির তারিখ</p>
-                  <p className="text-sm font-medium text-gray-800">
-                    {new Date(order.deliveryDate).toLocaleDateString('bn-BD')}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 mb-1">খাবারের সময়</p>
-                  <p className="text-sm font-medium text-gray-800">{getMealTimeText(order.deliveryTime)}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 mb-1">জোন</p>
-                  <p className="text-sm font-medium text-gray-800">{order.zone}</p>
-                </div>
-              </div>
+                {/* Card Body */}
+                <div className="p-4 space-y-3">
+                  {/* Customer Info */}
+                  <div>
+                    <p className="font-semibold text-gray-800">{order.userName}</p>
+                    <div className="flex items-center gap-1 text-gray-500 text-sm mt-1">
+                      <Phone size={14} />
+                      <span>{order.phoneNumber}</span>
+                    </div>
+                  </div>
 
-              <div className="mb-4">
-                <p className="text-xs text-gray-500 mb-1">আইটেম</p>
-                <p className="text-sm font-medium text-gray-800">
-                  {order.items?.map(item => `${item.name} (x${item.quantity})`).join(', ') || 'N/A'}
-                </p>
-              </div>
+                  {/* Order Details Grid */}
+                  <div className="grid grid-cols-2 gap-3 pt-2 border-t border-gray-100">
+                    <div>
+                      <p className="text-xs text-gray-500">অর্ডারের তারিখ</p>
+                      <div className="flex items-center gap-1 mt-1">
+                        <Calendar size={12} className="text-gray-400" />
+                        <p className="text-sm font-medium text-gray-800">
+                          {new Date(order.createdAt).toLocaleDateString('bn-BD')}
+                        </p>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">ডেলিভারির তারিখ</p>
+                      <p className="text-sm font-medium text-gray-800">
+                        {new Date(order.deliveryDate).toLocaleDateString('bn-BD')}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">খাবারের সময়</p>
+                      <p className="text-sm font-medium text-gray-800">{getMealTimeText(order.deliveryTime)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">জোন</p>
+                      <div className="flex items-center gap-1 mt-1">
+                        <MapPin size={12} className="text-gray-400" />
+                        <p className="text-sm font-medium text-gray-800">{order.zone}</p>
+                      </div>
+                    </div>
+                  </div>
 
-              <div className="mb-4">
-                <p className="text-xs text-gray-500 mb-1">ডেলিভারি ঠিকানা</p>
-                <p className="text-sm text-gray-800">{order.address}</p>
-              </div>
+                  {/* Items */}
+                  <div className="pt-2 border-t border-gray-100">
+                    <p className="text-xs text-gray-500 mb-1">আইটেম</p>
+                    <p className="text-sm text-gray-700 line-clamp-2">
+                      {order.items?.map(item => `${item.name} (x${item.quantity})`).join(', ') || 'N/A'}
+                    </p>
+                  </div>
 
-              <div className="flex flex-wrap gap-2 mt-4">
-                {getStatusButtons(order)}
-                <button className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition">
-                  <Eye size={16} />
-                  বিস্তারিত
-                </button>
+                  {/* Address */}
+                  <div className="pt-1">
+                    <p className="text-xs text-gray-500 mb-1">ডেলিভারি ঠিকানা</p>
+                    <p className="text-xs text-gray-600 line-clamp-2">{order.address}</p>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex flex-wrap gap-2 pt-3 border-t border-gray-100">
+                    {getStatusButtons(order)}
+                    <button className="flex items-center gap-1 px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition text-sm">
+                      <Eye size={14} />
+                      বিস্তারিত
+                    </button>
+                  </div>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
