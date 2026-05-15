@@ -14,7 +14,8 @@ import {
   LogOut,
   Crown,
   X,
-  DollarSign
+  DollarSign,
+  MapPin
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -28,6 +29,7 @@ const Sidebar = ({ onClose }: SidebarProps) => {
     { name: 'ড্যাশবোর্ড', href: '/dashboard', icon: LayoutDashboard },
     { name: 'প্যাকেজ ম্যানেজ', href: '/dashboard/packages', icon: Package },
     { name: 'উইকলি মেনু', href: '/dashboard/weekly-menu', icon: Calendar },
+    { name: 'জোন ম্যানেজ', href: '/dashboard/zones', icon: MapPin },
     { name: 'অর্ডার লিস্ট', href: '/dashboard/orders', icon: ShoppingBag },
     { name: 'ক্যাশ অন ডেলিভারি', href: '/dashboard/cod-orders', icon: DollarSign },
     { name: 'সাবস্ক্রাইবার লিস্ট', href: '/dashboard/subscribers', icon: Users },

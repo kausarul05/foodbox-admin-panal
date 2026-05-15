@@ -1,9 +1,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Calendar, Edit, Save, X, Plus, Loader2, RefreshCw, Utensils } from 'lucide-react';
+import { Calendar, Edit, Save, X, Plus, Loader2, RefreshCw, Utensils, Package } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { menuAPI } from '@/app/lib/api';
+import { menuAPI, packageAPI } from '@/app/lib/api';
 
 interface MenuItem {
   _id?: string;
@@ -11,72 +11,98 @@ interface MenuItem {
   morning: string;
   lunch: string;
   dinner: string;
-  package: 'golden' | 'diamond';
+  package: string;
   price: number;
   isActive?: boolean;
 }
 
+interface PackageType {
+  _id: string;
+  name: string;
+  title: string;
+  price: number;
+  originalPrice: number;
+  features: string[];
+  isActive: boolean;
+}
+
 export default function WeeklyMenuPage() {
-  const [selectedPackage, setSelectedPackage] = useState<'golden' | 'diamond'>('golden');
+  const [packages, setPackages] = useState<PackageType[]>([]);
+  const [selectedPackageId, setSelectedPackageId] = useState<string>('');
   const [editingCell, setEditingCell] = useState<{ day: string; meal: string } | null>(null);
   const [editValue, setEditValue] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  
-  const [goldenMenu, setGoldenMenu] = useState<MenuItem[]>([]);
-  const [diamondMenu, setDiamondMenu] = useState<MenuItem[]>([]);
+  const [menuData, setMenuData] = useState<{ [key: string]: MenuItem[] }>({});
 
   const days = ['শনিবার', 'রবিবার', 'সোমবার', 'মঙ্গলবার', 'বুধবার', 'বৃহস্পতিবার', 'শুক্রবার'];
 
-  // Fetch menu data on load and when package changes
+  // Fetch packages on load
   useEffect(() => {
-    fetchMenuData();
-  }, [selectedPackage]);
+    fetchPackages();
+  }, []);
 
-  const fetchMenuData = async () => {
+  // Fetch menu data when package changes
+  useEffect(() => {
+    if (selectedPackageId) {
+      fetchMenuData();
+    }
+  }, [selectedPackageId]);
+
+  const fetchPackages = async () => {
     try {
       setLoading(true);
-      const response = await menuAPI.getMenuByPackage(selectedPackage);
-      console.log('Menu response:', response);
+      const response = await packageAPI.getAllPackages();
+      console.log('Packages response:', response);
       
       if (response.success && response.data && response.data.length > 0) {
-        // Sort by day order
-        const sortedData = response.data.sort((a: MenuItem, b: MenuItem) => 
-          days.indexOf(a.day) - days.indexOf(b.day)
-        );
-        
-        if (selectedPackage === 'golden') {
-          setGoldenMenu(sortedData);
-        } else {
-          setDiamondMenu(sortedData);
-        }
-      } else {
-        // No data from API - set empty array
-        if (selectedPackage === 'golden') {
-          setGoldenMenu([]);
-        } else {
-          setDiamondMenu([]);
+        const activePackages = response.data.filter((pkg: PackageType) => pkg.isActive);
+        setPackages(activePackages);
+        if (activePackages.length > 0) {
+          setSelectedPackageId(activePackages[0]._id);
         }
       }
     } catch (error) {
-      console.error('Error fetching menu:', error);
-      toast.error('মেনু লোড করতে ব্যর্থ হয়েছে');
-      // Set empty array on error
-      if (selectedPackage === 'golden') {
-        setGoldenMenu([]);
-      } else {
-        setDiamondMenu([]);
-      }
+      console.error('Error fetching packages:', error);
+      toast.error('প্যাকেজ লোড করতে ব্যর্থ হয়েছে');
     } finally {
       setLoading(false);
     }
   };
 
+  const fetchMenuData = async () => {
+    try {
+      setSaving(true);
+      const selectedPkg = packages.find(p => p._id === selectedPackageId);
+      if (!selectedPkg) return;
+      
+      const response = await menuAPI.getMenuByPackage(selectedPkg.name);
+      console.log('Menu response:', response);
+      
+      if (response.success && response.data && response.data.length > 0) {
+        const sortedData = response.data.sort((a: MenuItem, b: MenuItem) => 
+          days.indexOf(a.day) - days.indexOf(b.day)
+        );
+        setMenuData(prev => ({ ...prev, [selectedPackageId]: sortedData }));
+      } else {
+        setMenuData(prev => ({ ...prev, [selectedPackageId]: [] }));
+      }
+    } catch (error) {
+      console.error('Error fetching menu:', error);
+      toast.error('মেনু লোড করতে ব্যর্থ হয়েছে');
+      setMenuData(prev => ({ ...prev, [selectedPackageId]: [] }));
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleAddNewMenu = async () => {
-    // Create default menu for all days
+    const selectedPkg = packages.find(p => p._id === selectedPackageId);
+    if (!selectedPkg) return;
+
     const defaultMenuItems = days.map(day => ({
       day,
-      package: selectedPackage,
+      package: selectedPkg.name,
       morning: 'নতুন আইটেম যোগ করুন',
       lunch: 'নতুন আইটেম যোগ করুন',
       dinner: 'নতুন আইটেম যোগ করুন',
@@ -86,7 +112,6 @@ export default function WeeklyMenuPage() {
     try {
       setSaving(true);
       
-      // Create all menu items
       for (const item of defaultMenuItems) {
         await menuAPI.createMenuItem(item);
       }
@@ -103,9 +128,12 @@ export default function WeeklyMenuPage() {
   };
 
   const handleAddSingleDayMenu = async (day: string) => {
+    const selectedPkg = packages.find(p => p._id === selectedPackageId);
+    if (!selectedPkg) return;
+
     const defaultMenuItem = {
       day,
-      package: selectedPackage,
+      package: selectedPkg.name,
       morning: 'নতুন আইটেম যোগ করুন',
       lunch: 'নতুন আইটেম যোগ করুন',
       dinner: 'নতুন আইটেম যোগ করুন',
@@ -136,47 +164,38 @@ export default function WeeklyMenuPage() {
   const handleSave = async () => {
     if (!editingCell) return;
 
+    const selectedPkg = packages.find(p => p._id === selectedPackageId);
+    if (!selectedPkg) return;
+
     try {
       setSaving(true);
       
-      let updatedMenu;
-      if (selectedPackage === 'golden') {
-        updatedMenu = goldenMenu.map(item => {
-          if (item.day === editingCell.day) {
-            return { ...item, [editingCell.meal]: editValue };
-          }
-          return item;
-        });
-        setGoldenMenu(updatedMenu);
-      } else {
-        updatedMenu = diamondMenu.map(item => {
-          if (item.day === editingCell.day) {
-            return { ...item, [editingCell.meal]: editValue };
-          }
-          return item;
-        });
-        setDiamondMenu(updatedMenu);
-      }
+      const currentMenu = menuData[selectedPackageId] || [];
+      const updatedMenu = currentMenu.map(item => {
+        if (item.day === editingCell.day) {
+          return { ...item, [editingCell.meal]: editValue };
+        }
+        return item;
+      });
+      
+      setMenuData(prev => ({ ...prev, [selectedPackageId]: updatedMenu }));
 
-      // Find the updated item
       const updatedItem = updatedMenu.find(item => item.day === editingCell.day);
       
       if (updatedItem) {
-        // Prepare data for API
-        const menuData = {
+        const menuDataToSave = {
           day: updatedItem.day,
-          package: selectedPackage,
+          package: selectedPkg.name,
           morning: updatedItem.morning,
           lunch: updatedItem.lunch,
           dinner: updatedItem.dinner,
           price: updatedItem.price,
         };
 
-        // If item has _id, update existing, otherwise create new
         if (updatedItem._id) {
-          await menuAPI.updateMenuItem(updatedItem._id, menuData);
+          await menuAPI.updateMenuItem(updatedItem._id, menuDataToSave);
         } else {
-          await menuAPI.createMenuItem(menuData);
+          await menuAPI.createMenuItem(menuDataToSave);
         }
         
         toast.success('মেনু আপডেট হয়েছে!');
@@ -184,8 +203,6 @@ export default function WeeklyMenuPage() {
       
       setEditingCell(null);
       setEditValue('');
-      
-      // Refresh data from API
       await fetchMenuData();
       
     } catch (error: any) {
@@ -202,52 +219,64 @@ export default function WeeklyMenuPage() {
     { key: 'dinner', label: 'রাতের খাবার', icon: '🌙' },
   ];
 
-  const currentMenu = selectedPackage === 'golden' ? goldenMenu : diamondMenu;
+  const currentMenu = menuData[selectedPackageId] || [];
+  const selectedPackage = packages.find(p => p._id === selectedPackageId);
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
         <div className="text-center">
           <Loader2 className="w-12 h-12 text-[#3B82F6] animate-spin mx-auto mb-4" />
-          <p className="text-gray-500">মেনু লোড হচ্ছে...</p>
+          <p className="text-gray-500">লোড হচ্ছে...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (packages.length === 0) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800">উইকলি মেনু ম্যানেজমেন্ট</h1>
+          <p className="text-gray-500 mt-1">প্যাকেজের মেনু এডিট করুন</p>
+        </div>
+        <div className="bg-white rounded-2xl shadow-lg p-12 text-center">
+          <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Package className="w-12 h-12 text-gray-400" />
+          </div>
+          <h3 className="text-xl font-semibold text-gray-800 mb-2">কোনো প্যাকেজ নেই</h3>
+          <p className="text-gray-500 mb-6">প্যাকেজ ম্যানেজমেন্ট থেকে প্রথমে একটি প্যাকেজ তৈরি করুন</p>
         </div>
       </div>
     );
   }
 
   // Show empty state if no menu exists
-  if (currentMenu.length === 0) {
+  if (currentMenu.length === 0 && !saving) {
     return (
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-2xl font-bold text-gray-800">উইকলি মেনু ম্যানেজমেন্ট</h1>
-            <p className="text-gray-500 mt-1">গোল্ডেন ও ডায়মন্ড প্যাকেজের মেনু এডিট করুন</p>
+            <p className="text-gray-500 mt-1">{selectedPackage?.title} প্যাকেজের মেনু এডিট করুন</p>
           </div>
         </div>
 
-        {/* Package Toggle */}
-        <div className="flex gap-4">
-          <button
-            onClick={() => setSelectedPackage('golden')}
-            className={`px-6 py-2 rounded-lg font-semibold transition-all ${
-              selectedPackage === 'golden'
-                ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg'
-                : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
-            }`}
-          >
-            ✨ গোল্ডেন প্যাকেজ
-          </button>
-          <button
-            onClick={() => setSelectedPackage('diamond')}
-            className={`px-6 py-2 rounded-lg font-semibold transition-all ${
-              selectedPackage === 'diamond'
-                ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg'
-                : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
-            }`}
-          >
-            💎 ডায়মন্ড প্যাকেজ
-          </button>
+        {/* Package Selection Buttons - Dynamic */}
+        <div className="flex flex-wrap gap-4">
+          {packages.map((pkg) => (
+            <button
+              key={pkg._id}
+              onClick={() => setSelectedPackageId(pkg._id)}
+              className={`px-6 py-2 rounded-lg font-semibold transition-all ${
+                selectedPackageId === pkg._id
+                  ? 'bg-gradient-to-r from-[#3B82F6] to-[#111827] text-white shadow-lg'
+                  : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+              }`}
+            >
+              {pkg.title}
+            </button>
+          ))}
         </div>
 
         {/* Empty State */}
@@ -257,7 +286,7 @@ export default function WeeklyMenuPage() {
           </div>
           <h3 className="text-xl font-semibold text-gray-800 mb-2">কোনো মেনু পাওয়া যায়নি</h3>
           <p className="text-gray-500 mb-6">
-            {selectedPackage === 'golden' ? 'গোল্ডেন প্যাকেজের' : 'ডায়মন্ড প্যাকেজের'} জন্য এখনো কোনো মেনু তৈরি করা হয়নি।
+            {selectedPackage?.title} প্যাকেজের জন্য এখনো কোনো মেনু তৈরি করা হয়নি।
           </p>
           <button
             onClick={handleAddNewMenu}
@@ -277,49 +306,42 @@ export default function WeeklyMenuPage() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">উইকলি মেনু ম্যানেজমেন্ট</h1>
-          <p className="text-gray-500 mt-1">গোল্ডেন ও ডায়মন্ড প্যাকেজের মেনু এডিট করুন</p>
+          <p className="text-gray-500 mt-1">{selectedPackage?.title} প্যাকেজের মেনু এডিট করুন</p>
         </div>
         
         {/* Refresh Button */}
         <button
           onClick={fetchMenuData}
-          disabled={loading}
+          disabled={saving}
           className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-semibold transition-all duration-300 flex items-center gap-2"
         >
-          <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
+          <RefreshCw size={18} className={saving ? 'animate-spin' : ''} />
           রিফ্রেশ
         </button>
       </div>
 
-      {/* Package Toggle */}
-      <div className="flex gap-4">
-        <button
-          onClick={() => setSelectedPackage('golden')}
-          className={`px-6 py-2 rounded-lg font-semibold transition-all ${
-            selectedPackage === 'golden'
-              ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg'
-              : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
-          }`}
-        >
-          ✨ গোল্ডেন প্যাকেজ
-        </button>
-        <button
-          onClick={() => setSelectedPackage('diamond')}
-          className={`px-6 py-2 rounded-lg font-semibold transition-all ${
-            selectedPackage === 'diamond'
-              ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg'
-              : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
-          }`}
-        >
-          💎 ডায়মন্ড প্যাকেজ
-        </button>
+      {/* Package Selection Buttons - Dynamic */}
+      <div className="flex flex-wrap gap-4">
+        {packages.map((pkg) => (
+          <button
+            key={pkg._id}
+            onClick={() => setSelectedPackageId(pkg._id)}
+            className={`px-6 py-2 rounded-lg font-semibold transition-all ${
+              selectedPackageId === pkg._id
+                ? 'bg-gradient-to-r from-[#3B82F6] to-[#111827] text-white shadow-lg'
+                : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+            }`}
+          >
+            {pkg.title}
+          </button>
+        ))}
       </div>
 
       {/* Menu Table */}
       <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className={selectedPackage === 'golden' ? 'bg-gradient-to-r from-amber-500 to-orange-500' : 'bg-gradient-to-r from-blue-500 to-purple-600'}>
+            <thead className="bg-gradient-to-r from-[#3B82F6] to-[#111827]">
               <tr>
                 <th className="px-4 py-3 text-left text-white font-semibold">দিন</th>
                 {meals.map(meal => (
@@ -335,7 +357,7 @@ export default function WeeklyMenuPage() {
                 
                 if (!menuItem) {
                   return (
-                    <tr key={day} className="hover:bg-gray-50 text-black">
+                    <tr key={day} className="hover:bg-gray-50">
                       <td className="px-4 py-3 font-medium text-gray-800">{day}</td>
                       <td colSpan={3} className="px-4 py-3 text-center text-gray-400">
                         <button
@@ -355,7 +377,7 @@ export default function WeeklyMenuPage() {
                   <tr key={day} className="hover:bg-gray-50">
                     <td className="px-4 py-3 font-medium text-gray-800">{menuItem.day}</td>
                     {meals.map(meal => (
-                      <td key={meal.key} className="px-4 py-3 text-black">
+                      <td key={meal.key} className="px-4 py-3">
                         {editingCell?.day === menuItem.day && editingCell?.meal === meal.key ? (
                           <div className="flex gap-2">
                             <input

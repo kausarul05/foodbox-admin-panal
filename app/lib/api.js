@@ -390,6 +390,71 @@ export const settingsAPI = {
   }
 }
 
+export const zoneAPI = {
+  // Get all zones (Admin)
+  adminGetAllZones: () => {
+    return apiCall('/admin/zones');
+  },
+
+  // Create zone (Admin)
+  adminCreateZone: (zoneData) => {
+    return apiCall('/admin/zones', {
+      method: 'POST',
+      body: JSON.stringify(zoneData),
+    });
+  },
+
+  // Update zone (Admin)
+  adminUpdateZone: (id, zoneData) => {
+    return apiCall(`/admin/zones/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(zoneData),
+    });
+  },
+
+  // Delete zone (Admin)
+  adminDeleteZone: (id) => {
+    return apiCall(`/admin/zones/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  // Toggle zone status (Admin)
+  adminToggleZoneStatus: (id) => {
+    return apiCall(`/admin/zones/${id}/toggle`, {
+      method: 'PUT',
+    });
+  },
+
+  approveZone: (id, deliveryCharge) => {
+    return apiCall(`/admin/zones/${id}/approve`, {
+      method: 'PUT',
+      body: JSON.stringify({ deliveryCharge }),
+    });
+  },
+};
+
+// Also add user zone API (for public access)
+export const publicZoneAPI = {
+  // Get all active zones
+  getAllZones: () => {
+    return apiCall('/zones');
+  },
+
+  // Get zone by ID
+  getZoneById: (id) => {
+    return apiCall(`/zones/${id}`);
+  },
+
+  // Create zone (user can add)
+  createZone: (zoneData) => {
+    return apiCall('/zones', {
+      method: 'POST',
+      body: JSON.stringify(zoneData),
+    });
+  },
+};
+
 // Export API
 export const exportAPI = {
   exportData: (type, startDate, endDate) => {
@@ -413,6 +478,8 @@ const API = {
   export: exportAPI,
   wallet: walletAPI,
   transactions: transactionAPI,
+  zones: zoneAPI,        // Add this
+  publicZones: publicZoneAPI,
 }
 
 export default API
