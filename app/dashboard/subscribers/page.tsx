@@ -41,6 +41,7 @@ interface Subscriber {
   zone: string;
   createdAt?: string;
   approvedAt?: string;
+  paymentMethod?: string;
 }
 
 export default function SubscribersPage() {
