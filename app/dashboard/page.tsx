@@ -110,19 +110,19 @@ export default function DashboardPage() {
       
       // Fallback to mock data if API fails
       setStats({
-        totalOrders: 156,
-        totalRevenue: 125000,
-        activeSubscribers: 45,
-        pendingSubscribers: 12,
+        totalOrders: 0,
+        totalRevenue: 0,
+        activeSubscribers: 0,
+        pendingSubscribers: 0,
       });
       
       setChartData([
-        { month: 'Jan', orders: 65, revenue: 45000 },
-        { month: 'Feb', orders: 85, revenue: 62000 },
-        { month: 'Mar', orders: 110, revenue: 78000 },
-        { month: 'Apr', orders: 130, revenue: 95000 },
-        { month: 'May', orders: 145, revenue: 110000 },
-        { month: 'Jun', orders: 156, revenue: 125000 },
+        { month: 'Jan', orders: 0, revenue: 0 },
+        { month: 'Feb', orders: 0, revenue: 0 },
+        { month: 'Mar', orders: 0, revenue: 0 },
+        { month: 'Apr', orders: 0, revenue: 0 },
+        { month: 'May', orders: 0, revenue: 0 },
+        { month: 'Jun', orders: 0, revenue: 0 },
       ]);
       
       setRecentOrders([
