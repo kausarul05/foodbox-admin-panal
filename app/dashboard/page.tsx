@@ -98,9 +98,9 @@ export default function DashboardPage() {
       } else {
         // Fallback mock data for development/demo
         setRecentOrders([
-          { id: 'ORD001', userName: 'রহিম', totalAmount: 350, status: 'pending', createdAt: '2024-01-15' },
-          { id: 'ORD002', userName: 'করিম', totalAmount: 2500, status: 'delivered', createdAt: '2024-01-14' },
-          { id: 'ORD003', userName: 'জবা', totalAmount: 3500, status: 'preparing', createdAt: '2024-01-14' },
+          // { id: 'ORD001', userName: 'রহিম', totalAmount: 350, status: 'pending', createdAt: '2024-01-15' },
+          // { id: 'ORD002', userName: 'করিম', totalAmount: 2500, status: 'delivered', createdAt: '2024-01-14' },
+          // { id: 'ORD003', userName: 'জবা', totalAmount: 3500, status: 'preparing', createdAt: '2024-01-14' },
         ]);
       }
       
