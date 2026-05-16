@@ -18,7 +18,12 @@ import {
   User,
   MapPin,
   Phone,
-  Calendar
+  Calendar,
+  X,
+  CreditCard,
+  Home,
+  Utensils,
+  AlertCircle
 } from 'lucide-react';
 import { orderAPI } from '../../lib/api';
 import toast from 'react-hot-toast';
@@ -40,6 +45,7 @@ interface CODOrder {
   address: string;
   zone: string;
   createdAt: string;
+  paymentMethod?: string;
 }
 
 export default function CODOrdersPage() {
@@ -49,6 +55,8 @@ export default function CODOrdersPage() {
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterOrderType, setFilterOrderType] = useState('all');
   const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
+  const [selectedOrder, setSelectedOrder] = useState<CODOrder | null>(null);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
 
   useEffect(() => {
     fetchCODOrders();
@@ -61,14 +69,11 @@ export default function CODOrdersPage() {
       console.log('COD Orders:', response);
       
       if (response.success && response.data) {
-        // Process orders to determine guest status
         const processedOrders = response.data.map((order: CODOrder) => ({
           ...order,
-          // Determine if guest order by specialInstructions or package
           orderType: (order.specialInstructions === 'Guest Meal Order' || order.package === 'Guest') ? 'guest' : 'self'
         }));
         setOrders(processedOrders);
-        console.log('Processed Orders with orderType:', processedOrders);
       }
     } catch (error) {
       console.error('Error fetching COD orders:', error);
@@ -95,6 +100,11 @@ export default function CODOrdersPage() {
     } finally {
       setUpdatingOrderId(null);
     }
+  };
+
+  const openDetailsModal = (order: CODOrder) => {
+    setSelectedOrder(order);
+    setShowDetailsModal(true);
   };
 
   const getStatusColor = (status: string) => {
@@ -126,6 +136,16 @@ export default function CODOrdersPage() {
       return { color: 'bg-purple-100 text-purple-700', icon: Users, text: 'গেস্ট অর্ডার' };
     }
     return { color: 'bg-blue-100 text-blue-700', icon: User, text: 'নিয়মিত অর্ডার' };
+  };
+
+  const getPaymentMethodText = (paymentMethod?: string) => {
+    switch(paymentMethod) {
+      case 'cash': return 'ক্যাশ অন ডেলিভারি';
+      case 'bkash': return 'bKash';
+      case 'nagad': return 'Nagad';
+      case 'rocket': return 'Rocket';
+      default: return paymentMethod || 'N/A';
+    }
   };
 
   const getMealTimeText = (time: string) => {
@@ -212,29 +232,17 @@ export default function CODOrdersPage() {
     return buttons;
   };
 
-  // Filter orders based on search, status, and order type
   const filteredOrders = orders.filter(order => {
     const matchesSearch = order.userName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          order.orderId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          order.phoneNumber?.includes(searchTerm);
     const matchesStatus = filterStatus === 'all' || order.status === filterStatus;
-    
-    // Order type filtering - important fix
     let matchesOrderType = true;
     if (filterOrderType === 'guest') {
       matchesOrderType = order.orderType === 'guest';
     } else if (filterOrderType === 'self') {
       matchesOrderType = order.orderType === 'self';
     }
-    
-    console.log('Filter check:', {
-      orderId: order.orderId,
-      orderType: order.orderType,
-      filterOrderType,
-      matchesOrderType,
-      specialInstructions: order.specialInstructions
-    });
-    
     return matchesSearch && matchesStatus && matchesOrderType;
   });
 
@@ -254,7 +262,6 @@ export default function CODOrdersPage() {
     { value: 'guest', label: 'গেস্ট অর্ডার' },
   ];
 
-  // Calculate stats
   const totalCODOrders = orders.length;
   const pendingCODOrders = orders.filter(o => o.status === 'pending').length;
   const deliveredCODOrders = orders.filter(o => o.status === 'delivered').length;
@@ -391,7 +398,7 @@ export default function CODOrdersPage() {
         </div>
       </div>
 
-      {/* Orders Grid - 3 columns */}
+      {/* Orders Grid */}
       {filteredOrders.length === 0 ? (
         <div className="bg-white rounded-2xl shadow-lg p-12 text-center">
           <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -438,7 +445,6 @@ export default function CODOrdersPage() {
 
                 {/* Card Body */}
                 <div className="p-4 space-y-3">
-                  {/* Customer Info */}
                   <div>
                     <p className="font-semibold text-gray-800">{order.userName}</p>
                     <div className="flex items-center gap-1 text-gray-500 text-sm mt-1">
@@ -447,7 +453,6 @@ export default function CODOrdersPage() {
                     </div>
                   </div>
 
-                  {/* Order Details Grid */}
                   <div className="grid grid-cols-2 gap-3 pt-2 border-t border-gray-100">
                     <div>
                       <p className="text-xs text-gray-500">অর্ডারের তারিখ</p>
@@ -477,7 +482,6 @@ export default function CODOrdersPage() {
                     </div>
                   </div>
 
-                  {/* Items */}
                   <div className="pt-2 border-t border-gray-100">
                     <p className="text-xs text-gray-500 mb-1">আইটেম</p>
                     <p className="text-sm text-gray-700 line-clamp-2">
@@ -485,7 +489,6 @@ export default function CODOrdersPage() {
                     </p>
                   </div>
 
-                  {/* Address */}
                   <div className="pt-1">
                     <p className="text-xs text-gray-500 mb-1">ডেলিভারি ঠিকানা</p>
                     <p className="text-xs text-gray-600 line-clamp-2">{order.address}</p>
@@ -494,7 +497,10 @@ export default function CODOrdersPage() {
                   {/* Action Buttons */}
                   <div className="flex flex-wrap gap-2 pt-3 border-t border-gray-100">
                     {getStatusButtons(order)}
-                    <button className="flex items-center gap-1 px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition text-sm">
+                    <button
+                      onClick={() => openDetailsModal(order)}
+                      className="flex items-center gap-1 px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition text-sm"
+                    >
                       <Eye size={14} />
                       বিস্তারিত
                     </button>
@@ -503,6 +509,170 @@ export default function CODOrdersPage() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Order Details Modal */}
+      {showDetailsModal && selectedOrder && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 text-black">
+          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center">
+              <div>
+                <h2 className="text-xl font-bold text-gray-800">অর্ডার বিস্তারিত</h2>
+                <p className="text-sm text-gray-500">অর্ডার আইডি: #{selectedOrder.orderId || selectedOrder._id.slice(-8)}</p>
+              </div>
+              <button
+                onClick={() => setShowDetailsModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-full transition"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-6">
+              {/* Status and Payment Info */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-gray-50 rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className={`w-2 h-2 rounded-full ${selectedOrder.status === 'delivered' ? 'bg-green-500' : selectedOrder.status === 'cancelled' ? 'bg-red-500' : 'bg-yellow-500'}`} />
+                    <p className="text-sm font-medium text-gray-600">বর্তমান স্ট্যাটাস</p>
+                  </div>
+                  <p className={`inline-flex px-3 py-1 rounded-full text-sm font-semibold ${getStatusColor(selectedOrder.status)}`}>
+                    {getStatusText(selectedOrder.status)}
+                  </p>
+                </div>
+                <div className="bg-gray-50 rounded-xl p-4">
+                  <p className="text-sm font-medium text-gray-600 mb-2">পেমেন্ট তথ্য</p>
+                  <div className="space-y-1">
+                    <p className="text-sm">পেমেন্ট মেথড: <span className="font-semibold">{getPaymentMethodText('cash')}</span></p>
+                    <p className="text-2xl font-bold text-[#3B82F6]">৳ {selectedOrder.totalAmount + (selectedOrder.deliveryCharge || 0)}</p>
+                    <p className="text-sm text-gray-500">ডেলিভারি চার্জ: ৳ {selectedOrder.deliveryCharge || 0}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Customer Information */}
+              <div className="bg-gray-50 rounded-xl p-4">
+                <h3 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                  <User size={18} className="text-[#3B82F6]" />
+                  গ্রাহকের তথ্য
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <p className="text-xs text-gray-500">নাম</p>
+                    <p className="text-sm font-medium">{selectedOrder.userName}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">ফোন নাম্বার</p>
+                    <p className="text-sm font-medium">{selectedOrder.phoneNumber}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">জোন</p>
+                    <p className="text-sm font-medium">{selectedOrder.zone}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">ঠিকানা</p>
+                    <p className="text-sm font-medium">{selectedOrder.address}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Order Information */}
+              <div className="bg-gray-50 rounded-xl p-4">
+                <h3 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                  <Calendar size={18} className="text-[#3B82F6]" />
+                  অর্ডারের তথ্য
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <p className="text-xs text-gray-500">অর্ডারের তারিখ</p>
+                    <p className="text-sm font-medium">{new Date(selectedOrder.createdAt).toLocaleString('bn-BD')}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">ডেলিভারির তারিখ</p>
+                    <p className="text-sm font-medium">
+                      {selectedOrder.deliveryDate ? new Date(selectedOrder.deliveryDate).toLocaleDateString('bn-BD') : 'N/A'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">ডেলিভারির সময়</p>
+                    <p className="text-sm font-medium">{getMealTimeText(selectedOrder.deliveryTime)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">প্যাকেজ</p>
+                    <p className="text-sm font-medium">{selectedOrder.package}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Items List */}
+              <div className="bg-gray-50 rounded-xl p-4">
+                <h3 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                  <Utensils size={18} className="text-[#3B82F6]" />
+                  অর্ডারকৃত আইটেম
+                </h3>
+                <div className="space-y-2">
+                  {selectedOrder.items?.map((item, idx) => (
+                    <div key={idx} className="flex justify-between items-center py-2 border-b border-gray-200 last:border-0">
+                      <div>
+                        <p className="font-medium text-gray-800">{item.name}</p>
+                        <p className="text-xs text-gray-500">পরিমাণ: {item.quantity}</p>
+                      </div>
+                      <p className="font-semibold text-[#3B82F6]">৳ {item.price * item.quantity}</p>
+                    </div>
+                  ))}
+                  <div className="flex justify-between items-center pt-3 mt-2 border-t border-gray-300">
+                    <p className="font-bold text-gray-800">সাবটোটাল</p>
+                    <p className="text-lg font-bold text-[#3B82F6]">৳ {selectedOrder.totalAmount}</p>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <p className="text-gray-600">ডেলিভারি চার্জ</p>
+                    <p className="text-gray-600">+ ৳ {selectedOrder.deliveryCharge || 0}</p>
+                  </div>
+                  <div className="flex justify-between items-center pt-2 border-t border-gray-200">
+                    <p className="font-bold text-gray-800">মোট</p>
+                    <p className="text-xl font-bold text-[#3B82F6]">৳ {selectedOrder.totalAmount + (selectedOrder.deliveryCharge || 0)}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Special Instructions */}
+              {selectedOrder.specialInstructions && (
+                <div className="bg-yellow-50 rounded-xl p-4">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle size={18} className="text-yellow-600 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium text-yellow-800 mb-1">বিশেষ নির্দেশনা</p>
+                      <p className="text-sm text-yellow-700">{selectedOrder.specialInstructions}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="sticky bottom-0 bg-white border-t px-6 py-4 flex justify-end gap-3">
+              <button
+                onClick={() => setShowDetailsModal(false)}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition"
+              >
+                বন্ধ করুন
+              </button>
+              {selectedOrder.status !== 'delivered' && selectedOrder.status !== 'cancelled' && (
+                <button
+                  onClick={() => {
+                    setShowDetailsModal(false);
+                    updateOrderStatus(selectedOrder._id, 'cancelled');
+                  }}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
+                >
+                  অর্ডার বাতিল করুন
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>
