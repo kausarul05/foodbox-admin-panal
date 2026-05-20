@@ -77,6 +77,7 @@ export default function FinancePage() {
     deliveryDate: new Date().toISOString().split('T')[0],
     deliveryTime: 'lunch',
     paymentMethod: 'cash',
+    orderType: 'cod', // 'subscription' or 'cod'
     specialInstructions: '',
   });
   const [submitting, setSubmitting] = useState(false);
@@ -169,6 +170,11 @@ export default function FinancePage() {
       return;
     }
 
+    if (!orderForm.orderType) {
+      toast.error('দয়া করে অর্ডার টাইপ নির্বাচন করুন');
+      return;
+    }
+
     // Calculate total amount
     let totalAmount = 0;
     orderForm.items.forEach(item => {
@@ -177,17 +183,24 @@ export default function FinancePage() {
 
     try {
       setSubmitting(true);
+
+      // Determine payment method based on order type
+      const paymentMethod = orderForm.orderType === 'subscription' ? 'wallet' : 'cash';
+
       const response = await manualOrderAPI.createOrder({
         ...orderForm,
         totalAmount,
+        paymentMethod,
         items: orderForm.items.map(item => ({
           name: item.name,
           price: parseFloat(item.price),
           quantity: parseInt(item.quantity),
         })),
       });
+
       if (response.success) {
-        toast.success('অর্ডার যোগ করা হয়েছে');
+        const orderTypeText = orderForm.orderType === 'subscription' ? 'সাবস্ক্রিপশন অর্ডার' : 'ক্যাশ অন ডেলিভারি অর্ডার';
+        toast.success(`${orderTypeText} যোগ করা হয়েছে`);
         setShowOrderModal(false);
         setOrderForm({
           customerName: '',
@@ -198,6 +211,7 @@ export default function FinancePage() {
           deliveryDate: new Date().toISOString().split('T')[0],
           deliveryTime: 'lunch',
           paymentMethod: 'cash',
+          orderType: 'cod',
           specialInstructions: '',
         });
         await fetchData();
@@ -646,8 +660,46 @@ export default function FinancePage() {
               </button>
             </div>
             <div className="space-y-4 max-h-[70vh] overflow-y-auto">
+              {/* Order Type Selection - Add this first */}
               <div>
-                <label className="block text-gray-700 mb-1">গ্রাহকের নাম</label>
+                <label className="block text-gray-700 mb-2 font-semibold">
+                  অর্ডার টাইপ সিলেক্ট করুন <span className="text-red-500">*</span>
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <label className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition ${orderForm.orderType === 'subscription' ? 'border-[#3B82F6] bg-blue-50' : 'border-gray-300 hover:border-[#3B82F6]'}`}>
+                    <input
+                      type="radio"
+                      name="orderType"
+                      value="subscription"
+                      checked={orderForm.orderType === 'subscription'}
+                      onChange={(e) => setOrderForm({ ...orderForm, orderType: e.target.value as 'subscription' | 'cod', paymentMethod: e.target.value === 'subscription' ? 'wallet' : 'cash' })}
+                      className="w-4 h-4 text-[#3B82F6]"
+                    />
+                    <div>
+                      <p className="font-semibold text-gray-800">সাবস্ক্রিপশন অর্ডার</p>
+                      <p className="text-xs text-gray-500">এই অর্ডার "অর্ডার লিস্ট" পেইজে দেখাবে</p>
+                    </div>
+                  </label>
+                  <label className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition ${orderForm.orderType === 'cod' ? 'border-[#3B82F6] bg-blue-50' : 'border-gray-300 hover:border-[#3B82F6]'}`}>
+                    <input
+                      type="radio"
+                      name="orderType"
+                      value="cod"
+                      checked={orderForm.orderType === 'cod'}
+                      onChange={(e) => setOrderForm({ ...orderForm, orderType: e.target.value as 'subscription' | 'cod', paymentMethod: e.target.value === 'cod' ? 'cash' : 'wallet' })}
+                      className="w-4 h-4 text-[#3B82F6]"
+                    />
+                    <div>
+                      <p className="font-semibold text-gray-800">ক্যাশ অন ডেলিভারি</p>
+                      <p className="text-xs text-gray-500">এই অর্ডার "ক্যাশ অন ডেলিভারি" পেইজে দেখাবে</p>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              {/* Customer Name */}
+              <div>
+                <label className="block text-gray-700 mb-1">গ্রাহকের নাম <span className="text-red-500">*</span></label>
                 <input
                   type="text"
                   value={orderForm.customerName}
@@ -656,8 +708,10 @@ export default function FinancePage() {
                   placeholder="গ্রাহকের নাম"
                 />
               </div>
+
+              {/* Phone Number */}
               <div>
-                <label className="block text-gray-700 mb-1">ফোন নাম্বার</label>
+                <label className="block text-gray-700 mb-1">ফোন নাম্বার <span className="text-red-500">*</span></label>
                 <input
                   type="tel"
                   value={orderForm.phoneNumber}
@@ -666,8 +720,10 @@ export default function FinancePage() {
                   placeholder="+8801XXXXXXXXX"
                 />
               </div>
+
+              {/* Zone */}
               <div>
-                <label className="block text-gray-700 mb-1">জোন</label>
+                <label className="block text-gray-700 mb-1">জোন <span className="text-red-500">*</span></label>
                 <select
                   value={orderForm.zone}
                   onChange={(e) => setOrderForm({ ...orderForm, zone: e.target.value })}
@@ -679,8 +735,10 @@ export default function FinancePage() {
                   ))}
                 </select>
               </div>
+
+              {/* Address */}
               <div>
-                <label className="block text-gray-700 mb-1">ঠিকানা</label>
+                <label className="block text-gray-700 mb-1">ঠিকানা <span className="text-red-500">*</span></label>
                 <textarea
                   value={orderForm.address}
                   onChange={(e) => setOrderForm({ ...orderForm, address: e.target.value })}
@@ -689,8 +747,10 @@ export default function FinancePage() {
                   placeholder="বিস্তারিত ঠিকানা"
                 />
               </div>
+
+              {/* Items */}
               <div>
-                <label className="block text-gray-700 mb-1">আইটেম সমূহ</label>
+                <label className="block text-gray-700 mb-1">আইটেম সমূহ <span className="text-red-500">*</span></label>
                 {orderForm.items.map((item, idx) => (
                   <div key={idx} className="flex gap-2 mb-2">
                     <input
@@ -733,6 +793,8 @@ export default function FinancePage() {
                   <Plus size={16} /> আরও আইটেম যোগ করুন
                 </button>
               </div>
+
+              {/* Delivery Date & Time */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-gray-700 mb-1">ডেলিভারির তারিখ</label>
@@ -756,18 +818,18 @@ export default function FinancePage() {
                   </select>
                 </div>
               </div>
-              <div>
-                <label className="block text-gray-700 mb-1">পেমেন্ট মেথড</label>
-                <select
-                  value={orderForm.paymentMethod}
-                  onChange={(e) => setOrderForm({ ...orderForm, paymentMethod: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg text-black"
-                >
-                  <option value="cash">ক্যাশ অন ডেলিভারি</option>
-                  <option value="bkash">bKash</option>
-                  <option value="nagad">Nagad</option>
-                </select>
+
+              {/* Payment Method - Auto based on order type, but can be shown as info */}
+              <div className="bg-gray-50 rounded-lg p-3">
+                <p className="text-sm text-gray-600">
+                  পেমেন্ট মেথড:
+                  <span className="font-semibold ml-1">
+                    {orderForm.orderType === 'subscription' ? 'ওয়ালেট (সাবস্ক্রিপশন)' : 'ক্যাশ অন ডেলিভারি'}
+                  </span>
+                </p>
               </div>
+
+              {/* Special Instructions */}
               <div>
                 <label className="block text-gray-700 mb-1">বিশেষ নির্দেশনা</label>
                 <textarea
@@ -778,6 +840,7 @@ export default function FinancePage() {
                   placeholder="কোনো বিশেষ নির্দেশনা থাকলে লিখুন..."
                 />
               </div>
+
               <button
                 onClick={handleAddManualOrder}
                 disabled={submitting}
